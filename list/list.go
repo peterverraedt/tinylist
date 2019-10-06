@@ -2,7 +2,7 @@ package list
 
 // List represents a mailing list
 type List struct {
-	Id              string
+	ID              string
 	Name            string   `ini:"name"`
 	Description     string   `ini:"description"`
 	Address         string   `ini:"address"`

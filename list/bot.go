@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-// Config
+// A Bot represents a mailing list bot
 type Bot struct {
 	CommandAddress string `ini:"command_address"`
 	SMTPHostname   string `ini:"smtp_hostname"`
@@ -19,74 +19,75 @@ type Bot struct {
 	Debug          bool
 }
 
-// Subscribe a given address to a listId
-func (b *Bot) Subscribe(address string, listId string, admin bool) (*List, error) {
-	list := b.lookupList(listId)
+// Subscribe a given address to a listID
+func (b *Bot) Subscribe(address string, listID string, admin bool) (*List, error) {
+	list := b.lookupList(listID)
 
 	if list == nil {
-		log.Printf("INVALID_SUBSCRIPTION_REQUEST User=%q List=%q\n", address, listId)
-		return nil, fmt.Errorf("Unable to subscribe to %s - it is not a valid mailing list.", listId)
+		log.Printf("INVALID_SUBSCRIPTION_REQUEST User=%q List=%q\n", address, listID)
+		return nil, fmt.Errorf("Unable to subscribe to %s - it is not a valid mailing list", listID)
 	}
 
 	// Switch to id - in case we were passed address
-	listId = list.Id
+	listID = list.ID
 
 	ok, err := list.IsSubscribed(address)
 	if err != nil {
 		return nil, err
 	}
 	if ok {
-		log.Printf("DUPLICATE_SUBSCRIPTION_REQUEST User=%q List=%q\n", address, listId)
-		return list, fmt.Errorf("You are already subscribed to %s", listId)
+		log.Printf("DUPLICATE_SUBSCRIPTION_REQUEST User=%q List=%q\n", address, listID)
+		return list, fmt.Errorf("You are already subscribed to %s", listID)
 	}
 
 	if list.Locked && !admin {
-		log.Printf("SUBSCRIPTION_REQUEST_BLOCKED User=%q List=%q\n", address, listId)
-		return list, fmt.Errorf("List %s is locked, only admins can add subscribers", listId)
+		log.Printf("SUBSCRIPTION_REQUEST_BLOCKED User=%q List=%q\n", address, listID)
+		return list, fmt.Errorf("List %s is locked, only admins can add subscribers", listID)
 	}
 
 	err = list.Subscribe(address)
 	if err != nil {
-		log.Printf("SUBSCRIPTION_FAILED User=%q List=%q Error=%s\n", address, listId, err.Error())
-		return list, fmt.Errorf("Subscription to %s failed with error %s", listId, err.Error())
+		log.Printf("SUBSCRIPTION_FAILED User=%q List=%q Error=%s\n", address, listID, err.Error())
+		return list, fmt.Errorf("Subscription to %s failed with error %s", listID, err.Error())
 	}
 	return list, nil
 }
 
-// Unsubscribe a given address from a listId
-func (b *Bot) Unsubscribe(address string, listId string, admin bool) (*List, error) {
-	list := b.lookupList(listId)
+// Unsubscribe a given address from a listID
+func (b *Bot) Unsubscribe(address string, listID string, admin bool) (*List, error) {
+	list := b.lookupList(listID)
 
 	if list == nil {
-		log.Printf("INVALID_UNSUBSCRIPTION_REQUEST User=%q List=%q\n", address, listId)
-		return nil, fmt.Errorf("Unable to unsubscribe from %s - it is not a valid mailing list.", listId)
+		log.Printf("INVALID_UNSUBSCRIPTION_REQUEST User=%q List=%q\n", address, listID)
+		return nil, fmt.Errorf("Unable to unsubscribe from %s - it is not a valid mailing list", listID)
 	}
 
 	// Switch to id - in case we were passed address
-	listId = list.Id
+	listID = list.ID
 
 	ok, err := list.IsSubscribed(address)
 	if err != nil {
 		return nil, err
 	}
 	if !ok {
-		log.Printf("DUPLICATE_UNSUBSCRIPTION_REQUEST User=%q List=%q\n", address, listId)
-		return list, fmt.Errorf("You aren't subscribed to %s", listId)
+		log.Printf("DUPLICATE_UNSUBSCRIPTION_REQUEST User=%q List=%q\n", address, listID)
+		return list, fmt.Errorf("You aren't subscribed to %s", listID)
 	}
 
 	if list.Locked && !admin {
-		log.Printf("UNSUBSCRIPTION_REQUEST_BLOCKED User=%q List=%q\n", address, listId)
-		return list, fmt.Errorf("List %s is locked, only admins can remove subscribers", listId)
+		log.Printf("UNSUBSCRIPTION_REQUEST_BLOCKED User=%q List=%q\n", address, listID)
+		return list, fmt.Errorf("List %s is locked, only admins can remove subscribers", listID)
 	}
 
 	err = list.Unsubscribe(address)
 	if err != nil {
-		log.Printf("UNSUBSCRIPTION_FAILED User=%q List=%q Error=%s\n", address, listId, err.Error())
-		return list, fmt.Errorf("Unsubscription to %s failed with error %s", listId, err.Error())
+		log.Printf("UNSUBSCRIPTION_FAILED User=%q List=%q Error=%s\n", address, listID, err.Error())
+		return list, fmt.Errorf("Unsubscription to %s failed with error %s", listID, err.Error())
 	}
 	return list, nil
 }
 
+// Handle a message from a io.Reader
 func (b *Bot) Handle(stream io.Reader) error {
 	msg := &Message{}
 	err := msg.FromReader(stream)
@@ -94,7 +95,7 @@ func (b *Bot) Handle(stream io.Reader) error {
 		return err
 	}
 	log.Printf("MESSAGE_RECEIVED Id=%q From=%q To=%q Cc=%q Bcc=%q Subject=%q\n",
-		msg.Id, msg.From, msg.To, msg.Cc, msg.Bcc, msg.Subject)
+		msg.ID, msg.From, msg.To, msg.Cc, msg.Bcc, msg.Subject)
 	return b.HandleMessage(msg)
 }
 
@@ -102,28 +103,27 @@ func (b *Bot) Handle(stream io.Reader) error {
 func (b *Bot) HandleMessage(msg *Message) error {
 	if b.isToCommandAddress(msg) {
 		return b.handleCommand(msg)
-	} else {
-		lists := b.lookupLists(msg)
-		if len(lists) > 0 {
-			for _, list := range lists {
-				if list.CanPost(msg.From) {
-					listMsg := msg.ResendAs(list.Id, list.Address, b.CommandAddress)
-					err := list.Send(listMsg, b.SMTPHostname, b.SMTPPort, b.SMTPUsername, b.SMTPPassword, b.Debug)
-					if err != nil {
-						return b.reply(msg, err.Error())
-					}
-					log.Printf("MESSAGE_SENT ListId=%q Id=%q From=%q To=%q Cc=%q Bcc=%q Subject=%q\n",
-						list.Id, listMsg.Id, listMsg.From, listMsg.To, listMsg.Cc, listMsg.Bcc, listMsg.Subject)
-				} else {
-					log.Printf("UNAUTHORISED_POST From=%q To=%q Cc=%q Bcc=%q", msg.From, msg.To, msg.Cc, msg.Bcc)
-					return b.reply(msg, fmt.Sprintf("You are not an approved poster for this mailing list. Your message has not been delivered to %s.", list.Id))
-				}
-			}
-			return nil
-		}
-		log.Printf("UNKNOWN_DESTINATION From=%q To=%q Cc=%q Bcc=%q", msg.From, msg.To, msg.Cc, msg.Bcc)
-		return b.reply(msg, "No mailing lists addressed. Your message has not been delivered.")
 	}
+	lists := b.lookupLists(msg)
+	if len(lists) > 0 {
+		for _, list := range lists {
+			if list.CanPost(msg.From) {
+				listMsg := msg.ResendAs(list.ID, list.Address, b.CommandAddress)
+				err := list.Send(listMsg, b.SMTPHostname, b.SMTPPort, b.SMTPUsername, b.SMTPPassword, b.Debug)
+				if err != nil {
+					return b.reply(msg, err.Error())
+				}
+				log.Printf("MESSAGE_SENT listID=%q Id=%q From=%q To=%q Cc=%q Bcc=%q Subject=%q\n",
+					list.ID, listMsg.ID, listMsg.From, listMsg.To, listMsg.Cc, listMsg.Bcc, listMsg.Subject)
+			} else {
+				log.Printf("UNAUTHORISED_POST From=%q To=%q Cc=%q Bcc=%q", msg.From, msg.To, msg.Cc, msg.Bcc)
+				return b.reply(msg, fmt.Sprintf("You are not an approved poster for this mailing list. Your message has not been delivered to %s.", list.ID))
+			}
+		}
+		return nil
+	}
+	log.Printf("UNKNOWN_DESTINATION From=%q To=%q Cc=%q Bcc=%q", msg.From, msg.To, msg.Cc, msg.Bcc)
+	return b.reply(msg, "No mailing lists addressed. Your message has not been delivered.")
 }
 
 func (b *Bot) handleCommand(msg *Message) error {
@@ -137,7 +137,7 @@ func (b *Bot) handleCommand(msg *Message) error {
 			for _, list := range b.Lists {
 				if !list.Hidden {
 					lines = append(lines,
-						fmt.Sprintf("Id: %s", list.Id),
+						fmt.Sprintf("Id: %s", list.ID),
 						fmt.Sprintf("Name: %s", list.Name),
 						fmt.Sprintf("Description: %s", list.Description),
 						fmt.Sprintf("Address: %s", list.Address),
@@ -156,7 +156,7 @@ func (b *Bot) handleCommand(msg *Message) error {
 				if err != nil {
 					return b.reply(msg, err.Error())
 				}
-				return b.reply(msg, fmt.Sprintf("You are now subscribed to %s", list.Id))
+				return b.reply(msg, fmt.Sprintf("You are now subscribed to %s", list.ID))
 			}
 		case "unsubscribe":
 			if len(parts) > 2 {
@@ -164,7 +164,7 @@ func (b *Bot) handleCommand(msg *Message) error {
 				if err != nil {
 					return b.reply(msg, err.Error())
 				}
-				return b.reply(msg, fmt.Sprintf("You are now unsubscribed from %s", list.Id))
+				return b.reply(msg, fmt.Sprintf("You are now unsubscribed from %s", list.ID))
 			}
 		}
 	}
@@ -264,7 +264,7 @@ func (b *Bot) lookupLists(msg *Message) []*List {
 // Look up a mailing list by id or address
 func (b *Bot) lookupList(listKey string) *List {
 	for _, list := range b.Lists {
-		if listKey == list.Id || listKey == list.Address {
+		if listKey == list.ID || listKey == list.Address {
 			return list
 		}
 	}

@@ -13,18 +13,18 @@ import (
 
 // Message represents an e-mail message
 type Message struct {
-	Subject     string
-	From        string
-	To          string
-	Cc          string
-	Bcc         string
-	Date        string
-	Id          string
-	InReplyTo   string
-	ContentType string
-	XList       string
+	Subject         string
+	From            string
+	To              string
+	Cc              string
+	Bcc             string
+	Date            string
+	ID              string
+	InReplyTo       string
+	ContentType     string
+	XList           string
 	ListUnsubscribe string
-	Body        string
+	Body            string
 }
 
 // FromReader reads a message from the given io.Reader
@@ -41,7 +41,7 @@ func (msg *Message) FromReader(stream io.Reader) error {
 
 	msg.Subject = inMessage.Header.Get("Subject")
 	msg.From = inMessage.Header.Get("From")
-	msg.Id = inMessage.Header.Get("Message-ID")
+	msg.ID = inMessage.Header.Get("Message-ID")
 	msg.InReplyTo = inMessage.Header.Get("In-Reply-To")
 	msg.Body = string(body[:])
 	msg.To = inMessage.Header.Get("To")
@@ -57,30 +57,30 @@ func (msg *Message) Reply() *Message {
 	reply := &Message{}
 	reply.Subject = "Re: " + msg.Subject
 	reply.To = msg.From
-	reply.InReplyTo = msg.Id
+	reply.InReplyTo = msg.ID
 	reply.Date = time.Now().Format("Mon, 2 Jan 2006 15:04:05 -0700")
 	return reply
 }
 
 // ResendAs a list prepares a copy of the message to be used for a list forward
-func (msg *Message) ResendAs(listId string, listAddress string, commandAddress string) *Message {
+func (msg *Message) ResendAs(listID string, listAddress string, commandAddress string) *Message {
 	send := &Message{}
 	send.Subject = msg.Subject
 	send.From = msg.From
 	send.To = msg.To
 	send.Cc = msg.Cc
 	send.Date = msg.Date
-	send.Id = msg.Id
+	send.ID = msg.ID
 	send.InReplyTo = msg.InReplyTo
-	send.XList = listId + " <" + listAddress + ">"
-	send.ListUnsubscribe = fmt.Sprintf("<mailto:%s?subject=unsubscribe%%20%s>", commandAddress, listId)
+	send.XList = listID + " <" + listAddress + ">"
+	send.ListUnsubscribe = fmt.Sprintf("<mailto:%s?subject=unsubscribe%%20%s>", commandAddress, listID)
 
 	// If the destination mailing list is in the Bcc field, keep it there
 	bccList, err := mail.ParseAddressList(msg.Bcc)
 	if err == nil {
 		for _, bcc := range bccList {
 			if bcc.Address == listAddress {
-				send.Bcc = listId + " <" + listAddress + ">"
+				send.Bcc = listID + " <" + listAddress + ">"
 				break
 			}
 		}
@@ -99,8 +99,8 @@ func (msg *Message) String() string {
 	if len(msg.Date) > 0 {
 		fmt.Fprintf(&buf, "Date: %s\r\n", msg.Date)
 	}
-	if len(msg.Id) > 0 {
-		fmt.Fprintf(&buf, "Messsage-ID: %s\r\n", msg.Id)
+	if len(msg.ID) > 0 {
+		fmt.Fprintf(&buf, "Messsage-ID: %s\r\n", msg.ID)
 	}
 	fmt.Fprintf(&buf, "In-Reply-To: %s\r\n", msg.InReplyTo)
 	if len(msg.XList) > 0 {

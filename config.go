@@ -60,11 +60,11 @@ func NewConfig(configFile string, debug bool) *Config {
 		if err != nil {
 			log.Fatalf("CONFIG_ERROR Error=%q\n", err.Error())
 		}
-		list.Id = strings.TrimPrefix(section.Name(), "list.")
-		list.Subscribe = func(address string) error { return c.addSubscription(address, list.Id) }
-		list.Unsubscribe = func(address string) error { return c.removeSubscription(address, list.Id) }
-		list.Subscribers = func() ([]string, error) { return c.fetchSubscribers(list.Id) }
-		list.IsSubscribed = func(address string) (bool, error) { return c.isSubscribed(address, list.Id) }
+		list.ID = strings.TrimPrefix(section.Name(), "list.")
+		list.Subscribe = func(address string) error { return c.addSubscription(address, list.ID) }
+		list.Unsubscribe = func(address string) error { return c.removeSubscription(address, list.ID) }
+		list.Subscribers = func() ([]string, error) { return c.fetchSubscribers(list.ID) }
+		list.IsSubscribed = func(address string) (bool, error) { return c.isSubscribed(address, list.ID) }
 		c.Bot.Lists[list.Address] = list
 	}
 

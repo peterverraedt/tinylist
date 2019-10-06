@@ -68,6 +68,7 @@ log = /path/to/logfile
 # runs nanolist as.
 database = /path/to/sqlite/database
 
+[bot]
 # Address nanolist should receive user commands on
 command_address = lists@example.com
 

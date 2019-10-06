@@ -1,17 +1,17 @@
-package main
+package list
 
 import (
-	"log"
-	"os"
-	"net/mail"
-	"net/smtp"
-	"io"
-	"io/ioutil"
-	"time"
 	"bytes"
 	"fmt"
+	"io"
+	"io/ioutil"
+	"log"
+	"net/mail"
+	"net/smtp"
+	"time"
 )
 
+// Message represents an e-mail message
 type Message struct {
 	Subject     string
 	From        string
@@ -23,11 +23,11 @@ type Message struct {
 	InReplyTo   string
 	ContentType string
 	XList       string
+	ListUnsubscribe string
 	Body        string
 }
 
-
-// Read a message from the given io.Reader
+// FromReader reads a message from the given io.Reader
 func (msg *Message) FromReader(stream io.Reader) error {
 	inMessage, err := mail.ReadMessage(stream)
 	if err != nil {
@@ -52,7 +52,7 @@ func (msg *Message) FromReader(stream io.Reader) error {
 	return nil
 }
 
-// Create a new message that replies to this message
+// Reply creates a new message that replies to the given message
 func (msg *Message) Reply() *Message {
 	reply := &Message{}
 	reply.Subject = "Re: " + msg.Subject
@@ -62,8 +62,8 @@ func (msg *Message) Reply() *Message {
 	return reply
 }
 
-// Prepare a copy of the message that we're forwarding to a list
-func (msg *Message) ResendAs(listId string, listAddress string) *Message {
+// ResendAs a list prepares a copy of the message to be used for a list forward
+func (msg *Message) ResendAs(listId string, listAddress string, commandAddress string) *Message {
 	send := &Message{}
 	send.Subject = msg.Subject
 	send.From = msg.From
@@ -73,6 +73,7 @@ func (msg *Message) ResendAs(listId string, listAddress string) *Message {
 	send.Id = msg.Id
 	send.InReplyTo = msg.InReplyTo
 	send.XList = listId + " <" + listAddress + ">"
+	send.ListUnsubscribe = fmt.Sprintf("<mailto:%s?subject=unsubscribe%%20%s>", commandAddress, listId)
 
 	// If the destination mailing list is in the Bcc field, keep it there
 	bccList, err := mail.ParseAddressList(msg.Bcc)
@@ -87,7 +88,7 @@ func (msg *Message) ResendAs(listId string, listAddress string) *Message {
 	return send
 }
 
-// Generate a emailable represenation of this message
+// String representing the message
 func (msg *Message) String() string {
 	var buf bytes.Buffer
 
@@ -107,6 +108,9 @@ func (msg *Message) String() string {
 		fmt.Fprintf(&buf, "List-ID: %s\r\n", msg.XList)
 		fmt.Fprintf(&buf, "Sender: %s\r\n", msg.XList)
 	}
+	if len(msg.ListUnsubscribe) > 0 {
+		fmt.Fprintf(&buf, "List-Unsubscribe: %s\r\n", msg.ListUnsubscribe)
+	}
 	if len(msg.ContentType) > 0 {
 		fmt.Fprintf(&buf, "Content-Type: %s\r\n", msg.ContentType)
 	}
@@ -116,22 +120,25 @@ func (msg *Message) String() string {
 	return buf.String()
 }
 
-func (msg *Message) Send(recipients []string) {
-	if gConfig.Debug {
-		fmt.Printf("------------------------------------------------------------\n")
-		fmt.Printf("SENDING MESSAGE TO:\n")
-		for _, r := range recipients {
-			fmt.Printf(" - %s\n", r)
-		}
-		fmt.Printf("MESSAGE:\n")
-		fmt.Printf("%s\n", msg.String())
-		return
+// Send a Message using an SMTP server
+func (msg *Message) Send(recipients []string, SMTPHostname string, SMTPPort uint64, SMTPUsername string, SMTPPassword string, debug bool) error {
+	if debug {
+		log.Print(msg.SendDebug(recipients))
+		return nil
 	}
+	var auth smtp.Auth
+	if SMTPUsername != "" {
+		auth = smtp.PlainAuth("", SMTPUsername, SMTPPassword, SMTPHostname)
+	}
+	return smtp.SendMail(fmt.Sprintf("%s:%d", SMTPHostname, SMTPPort), auth, msg.From, recipients, []byte(msg.String()))
+}
 
-	auth := smtp.PlainAuth("", gConfig.SMTPUsername, gConfig.SMTPPassword, gConfig.SMTPHostname)
-	err := smtp.SendMail(gConfig.SMTPHostname+":"+gConfig.SMTPPort, auth, msg.From, recipients, []byte(msg.String()))
-	if err != nil {
-		log.Printf("EROR_SENDING Error=%q\n", err.Error())
-		os.Exit(0)
+// SendDebug returns a string describing the message that would be sent, and its recipients
+func (msg *Message) SendDebug(recipients []string) string {
+	out := fmt.Sprintf("------------------------------------------------------------\nSENDING MESSAGE TO:\n")
+	for _, r := range recipients {
+		out = out + fmt.Sprintf(" - %s\n", r)
 	}
+	out += fmt.Sprintf("MESSAGE:\n%s\n", msg.String())
+	return out
 }

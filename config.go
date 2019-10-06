@@ -10,7 +10,7 @@ import (
 
 	"gopkg.in/ini.v1"
 
-	"github.com/peter.verraedt/nanolist/list"
+	"github.com/peterverraedt/nanolist/list"
 )
 
 // Config

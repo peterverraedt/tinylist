@@ -1,4 +1,4 @@
-module github.com/peter.verraedt/nanolist
+module github.com/peterverraedt/nanolist
 
 go 1.12
 

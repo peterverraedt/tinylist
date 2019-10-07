@@ -17,9 +17,19 @@ func (c *Config) openDB() (*sql.DB, error) {
 	}
 
 	_, err = db.Exec(`
+	CREATE TABLE IF NOT EXISTS "lists" (
+		"list" TEXT PRIMARY KEY,
+		"name" TEXT,
+		"description" TEXT,
+		"address" TEXT,
+		"hidden" INTEGER(1),
+		"locked" INTEGER(1),
+		"subscribers_only" INTEGER(1),
+	);
 	CREATE TABLE IF NOT EXISTS "subscriptions" (
 		"list" TEXT,
-		"user" TEXT
+		"user" TEXT,
+		UNIQUE("list","user"),
 	);
 	`)
 

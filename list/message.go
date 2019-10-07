@@ -63,7 +63,7 @@ func (msg *Message) Reply() *Message {
 }
 
 // ResendAs a list prepares a copy of the message to be used for a list forward
-func (msg *Message) ResendAs(listID string, listAddress string, commandAddress string) *Message {
+func (msg *Message) ResendAs(list *List, commandAddress string) *Message {
 	send := &Message{}
 	send.Subject = msg.Subject
 	send.From = msg.From
@@ -72,15 +72,17 @@ func (msg *Message) ResendAs(listID string, listAddress string, commandAddress s
 	send.Date = msg.Date
 	send.ID = msg.ID
 	send.InReplyTo = msg.InReplyTo
-	send.XList = listID + " <" + listAddress + ">"
-	send.ListUnsubscribe = fmt.Sprintf("<mailto:%s?subject=unsubscribe%%20%s>", commandAddress, listID)
+	send.XList = fmt.Sprintf("%s <%s>", list.ID, list.Address)
+	if !list.Locked {
+		send.ListUnsubscribe = fmt.Sprintf("<mailto:%s?subject=unsubscribe%%20%s>", commandAddress, list.ID)
+	}
 
 	// If the destination mailing list is in the Bcc field, keep it there
 	bccList, err := mail.ParseAddressList(msg.Bcc)
 	if err == nil {
 		for _, bcc := range bccList {
-			if bcc.Address == listAddress {
-				send.Bcc = listID + " <" + listAddress + ">"
+			if bcc.Address == list.Address {
+				send.Bcc = list.ID + " <" + list.Address + ">"
 				break
 			}
 		}

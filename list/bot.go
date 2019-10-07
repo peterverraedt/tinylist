@@ -109,7 +109,7 @@ func (b *Bot) HandleMessage(msg *Message) error {
 	if len(lists) > 0 {
 		for _, list := range lists {
 			if list.CanPost(msg.From) {
-				listMsg := msg.ResendAs(list.ID, list.Address, b.CommandAddress)
+				listMsg := msg.ResendAs(list, b.CommandAddress)
 				err := list.Send(listMsg, b.BouncesAddress, b.SMTPHostname, b.SMTPPort, b.SMTPUsername, b.SMTPPassword, b.Debug)
 				if err != nil {
 					return b.reply(msg, err.Error())

@@ -11,6 +11,7 @@ import (
 // A Bot represents a mailing list bot
 type Bot struct {
 	CommandAddress string `ini:"command_address"`
+	BouncesAddress string `ini:"bounces_address"`
 	SMTPHostname   string `ini:"smtp_hostname"`
 	SMTPPort       uint64 `ini:"smtp_port"`
 	SMTPUsername   string `ini:"smtp_username"`
@@ -109,7 +110,7 @@ func (b *Bot) HandleMessage(msg *Message) error {
 		for _, list := range lists {
 			if list.CanPost(msg.From) {
 				listMsg := msg.ResendAs(list.ID, list.Address, b.CommandAddress)
-				err := list.Send(listMsg, b.SMTPHostname, b.SMTPPort, b.SMTPUsername, b.SMTPPassword, b.Debug)
+				err := list.Send(listMsg, b.BouncesAddress, b.SMTPHostname, b.SMTPPort, b.SMTPUsername, b.SMTPPassword, b.Debug)
 				if err != nil {
 					return b.reply(msg, err.Error())
 				}
@@ -279,5 +280,5 @@ func (b *Bot) replyLines(msg *Message, body []string) error {
 	reply := msg.Reply()
 	reply.From = b.CommandAddress
 	reply.Body = fmt.Sprintf("%s\r\n", strings.Join(body, "\r\n"))
-	return reply.Send([]string{msg.From}, b.SMTPHostname, b.SMTPPort, b.SMTPUsername, b.SMTPPassword, b.Debug)
+	return reply.Send(b.CommandAddress, []string{msg.From}, b.SMTPHostname, b.SMTPPort, b.SMTPUsername, b.SMTPPassword, b.Debug)
 }

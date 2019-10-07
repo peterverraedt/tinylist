@@ -121,7 +121,7 @@ func (msg *Message) String() string {
 }
 
 // Send a Message using an SMTP server
-func (msg *Message) Send(recipients []string, SMTPHostname string, SMTPPort uint64, SMTPUsername string, SMTPPassword string, debug bool) error {
+func (msg *Message) Send(envelopeSender string, recipients []string, SMTPHostname string, SMTPPort uint64, SMTPUsername string, SMTPPassword string, debug bool) error {
 	if debug {
 		log.Print(msg.SendDebug(recipients))
 		return nil
@@ -130,7 +130,7 @@ func (msg *Message) Send(recipients []string, SMTPHostname string, SMTPPort uint
 	if SMTPUsername != "" {
 		auth = smtp.PlainAuth("", SMTPUsername, SMTPPassword, SMTPHostname)
 	}
-	return smtp.SendMail(fmt.Sprintf("%s:%d", SMTPHostname, SMTPPort), auth, msg.From, recipients, []byte(msg.String()))
+	return smtp.SendMail(fmt.Sprintf("%s:%d", SMTPHostname, SMTPPort), auth, envelopeSender, recipients, []byte(msg.String()))
 }
 
 // SendDebug returns a string describing the message that would be sent, and its recipients

@@ -42,7 +42,7 @@ func (list *List) CanPost(from string) bool {
 }
 
 // Send a message to the mailing list
-func (list *List) Send(msg *Message, SMTPHostname string, SMTPPort uint64, SMTPUsername string, SMTPPassword string, debug bool) error {
+func (list *List) Send(msg *Message, envelopeSender string, SMTPHostname string, SMTPPort uint64, SMTPUsername string, SMTPPassword string, debug bool) error {
 	recipients, err := list.Subscribers()
 	if err != nil {
 		return err
@@ -50,5 +50,5 @@ func (list *List) Send(msg *Message, SMTPHostname string, SMTPPort uint64, SMTPU
 	for _, bcc := range list.Bcc {
 		recipients = append(recipients, bcc)
 	}
-	return msg.Send(recipients, SMTPHostname, SMTPPort, SMTPUsername, SMTPPassword, debug)
+	return msg.Send(envelopeSender, recipients, SMTPHostname, SMTPPort, SMTPUsername, SMTPPassword, debug)
 }

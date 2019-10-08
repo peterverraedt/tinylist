@@ -2,6 +2,7 @@ package list
 
 import (
 	"fmt"
+	"time"
 )
 
 // List represents a mailing list
@@ -16,8 +17,16 @@ type List struct {
 	Bcc             []string `ini:"bcc,omitempty"`
 	Subscribe       func(string) error
 	Unsubscribe     func(string) error
-	Subscribers     func() ([]string, error)
-	IsSubscribed    func(string) (bool, error)
+	SetBounce       func(string, uint16, time.Time) error
+	Subscribers     func() ([]*Subscription, error)
+	IsSubscribed    func(string) (*Subscription, error)
+}
+
+// Subscription describes a subscription with metadata
+type Subscription struct {
+	Address string
+	Bounces uint16
+	LastBounce time.Time
 }
 
 // CanPost checks if the user is authorised to post to this mailing list
@@ -25,8 +34,8 @@ func (list *List) CanPost(from string) bool {
 
 	// Is this list restricted to subscribers only?
 	if list.SubscribersOnly {
-		ok, err := list.IsSubscribed(from)
-		if err != nil || !ok {
+		subscription, err := list.IsSubscribed(from)
+		if err != nil || subscription == nil {
 			return false
 		}
 	}
@@ -46,9 +55,13 @@ func (list *List) CanPost(from string) bool {
 
 // Send a message to the mailing list
 func (list *List) Send(msg *Message, envelopeSender string, SMTPHostname string, SMTPPort uint64, SMTPUsername string, SMTPPassword string, debug bool) error {
-	recipients, err := list.Subscribers()
+	recipients := []string{}
+	subscriptions, err := list.Subscribers()
 	if err != nil {
 		return err
+	}
+	for _, subscription := range subscriptions {
+		recipients = append(recipients, subscription.Address)
 	}
 	for _, bcc := range list.Bcc {
 		recipients = append(recipients, bcc)
@@ -58,6 +71,10 @@ func (list *List) Send(msg *Message, envelopeSender string, SMTPHostname string,
 
 func (list *List) String() string {
 	subscribers, _ := list.Subscribers()
-	return fmt.Sprintf("List %s:\n  Name: %s\n  Description: %s\n  Hidden: %v | Locked: %v | Subscribers only: %v\n  Posters: %v\n  Bcc: %v\n  Subscribers: %v",
-		list.ID, list.Name, list.Description, list.Hidden, list.Locked, list.SubscribersOnly, list.Posters, list.Bcc, subscribers)
+	out := fmt.Sprintf("Name: %s <%s>\nDescription: %s\nHidden: %v | Locked: %v | Subscribers only: %v\nPosters: %v\nBcc: %v\nSubscribers:",
+	  list.Name, list.ID, list.Description, list.Hidden, list.Locked, list.SubscribersOnly, list.Posters, list.Bcc)
+	for _, subscription := range subscribers {
+		out += fmt.Sprintf("\n  - %s (%d bounces, last on %s)", subscription.Address, subscription.Bounces, subscription.LastBounce)
+	}
+	return out
 }

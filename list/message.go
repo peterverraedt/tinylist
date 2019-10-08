@@ -74,7 +74,6 @@ func (msg *Message) ResendAs(list *List, commandAddress string) *Message {
 	send.InReplyTo = msg.InReplyTo
 	send.XList = fmt.Sprintf("%s <%s>", list.Name, list.ID)
 	if !list.Locked {
-		// TODO: fix this
 		send.ListUnsubscribe = fmt.Sprintf("<mailto:%s?subject=unsubscribe>", commandAddress)
 	}
 

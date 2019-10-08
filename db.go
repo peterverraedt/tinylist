@@ -2,8 +2,10 @@ package main
 
 import (
 	"database/sql"
+	"time"
+	"fmt"
+	
 	_ "github.com/mattn/go-sqlite3"
-
 	"github.com/peterverraedt/nanolist/list"
 )
 
@@ -18,25 +20,27 @@ func (c *Config) openDB() (err error) {
 	_, err = c.db.Exec(`
 	CREATE TABLE IF NOT EXISTS "lists" (
 		"list" TEXT PRIMARY KEY,
-		"name" TEXT,
-		"description" TEXT,
-		"hidden" INTEGER(1),
-		"locked" INTEGER(1),
-		"subscribers_only" INTEGER(1)
+		"name" TEXT NOT NULL,
+		"description" TEXT NOT NULL,
+		"hidden" INTEGER(1) NOT NULL,
+		"locked" INTEGER(1) NOT NULL,
+		"subscribers_only" INTEGER(1) NOT NULL
 	);
 	CREATE TABLE IF NOT EXISTS "bcc" (
-		"list" TEXT,
-		"address" TEXT,
+		"list" TEXT NOT NULL,
+		"address" TEXT NOT NULL,
 		UNIQUE("list","address")
 	);
 	CREATE TABLE IF NOT EXISTS "posters" (
-		"list" TEXT,
-		"address" TEXT,
+		"list" TEXT NOT NULL,
+		"address" TEXT NOT NULL,
 		UNIQUE("list","address")
 	);
 	CREATE TABLE IF NOT EXISTS "subscriptions" (
-		"list" TEXT,
-		"user" TEXT,
+		"list" TEXT NOT NULL,
+		"user" TEXT NOT NULL,
+		"bounces" INTEGER NOT NULL DEFAULT 0,
+		"last_bounce" DATETIME NOT NULL DEFAULT 0,
 		UNIQUE("list","user")
 	);
 	`)
@@ -108,8 +112,9 @@ func (c *Config) fetchList(rows *sql.Rows) (*list.List, error) {
 	}
 	l.Subscribe = func(a string) error { return c.subscribe(l.ID, a) }
 	l.Unsubscribe = func(a string) error { return c.unsubscribe(l.ID, a) }
-	l.Subscribers = func() ([]string, error) { return c.listSubscribers(l.ID) }
-	l.IsSubscribed = func(a string) (bool, error) { return c.isSubscribed(l.ID, a) }
+	l.SetBounce = func (a string, b uint16, t time.Time) error { return c.setBounce(l.ID, a, b, t) }
+	l.Subscribers = func() ([]*list.Subscription, error) { return c.listSubscribers(l.ID) }
+	l.IsSubscribed = func(a string) (*list.Subscription, error) { return c.isSubscribed(l.ID, a) }
 	return l, nil
 }
 
@@ -153,34 +158,36 @@ func (c *Config) listBcc(id string) ([]string, error) {
 	return result, nil
 }
 
-func (c *Config) isSubscribed(id string, user string) (bool, error) {
-	exists := false
-	err := c.db.QueryRow("SELECT 1 FROM subscriptions WHERE user=? AND list=?", user, id).Scan(&exists)
+func (c *Config) isSubscribed(id string, user string) (*list.Subscription, error) {
+	s := &list.Subscription{
+		Address: user,
+	}
+	err := c.db.QueryRow("SELECT bounces, last_bounce FROM subscriptions WHERE user=? AND list=?", user, id).Scan(&s.Bounces, &s.LastBounce)
 
 	if err == sql.ErrNoRows {
-		return false, nil
+		return nil, nil
 	} else if err != nil {
-		return false, err
+		return nil, err
 	}
 
-	return true, nil
+	return s, nil
 }
 
-func (c *Config) listSubscribers(id string) ([]string, error) {
-	rows, err := c.db.Query("SELECT user FROM subscriptions WHERE list=?", id)
+func (c *Config) listSubscribers(id string) ([]*list.Subscription, error) {
+	rows, err := c.db.Query("SELECT user, bounces, last_bounce FROM subscriptions WHERE list=?", id)
 	if err != nil {
 		return nil, err
 	}
 
-	result := []string{}
+	result := []*list.Subscription{}
 	defer rows.Close()
 	for rows.Next() {
-		var address string
-		err = rows.Scan(&address)
+		s := &list.Subscription{}
+		err = rows.Scan(&s.Address, &s.Bounces, &s.LastBounce)
 		if err != nil {
 			return nil, err
 		}
-		result = append(result, address)
+		result = append(result, s)
 	}
 
 	return result, nil
@@ -192,8 +199,33 @@ func (c *Config) subscribe(id string, user string) error {
 }
 
 func (c *Config) unsubscribe(id string, user string) error {
-	_, err := c.db.Exec("DELETE FROM subscriptions WHERE user=? AND list=?", user, id)
-	return err
+	r, err := c.db.Exec("DELETE FROM subscriptions WHERE user=? AND list=?", user, id)
+	if err != nil {
+		return err
+	}
+	n, err := r.RowsAffected() 
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return fmt.Errorf("User %s is not subscribed to list %s", user, id)
+	}
+	return nil
+}
+
+func (c *Config) setBounce(id string, user string, bounces uint16, lastBounce time.Time) error {
+	r, err := c.db.Exec("UPDATE subscriptions SET bounces = ?, last_bounce = ? WHERE user=? AND list=?", bounces, lastBounce, user, id)
+	if err != nil {
+		return err
+	}
+	n, err := r.RowsAffected() 
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return fmt.Errorf("User %s is not subscribed to list %s", user, id)
+	}
+	return nil
 }
 
 // Create a list
@@ -212,7 +244,7 @@ func (c *Config) Create(o *CLIListOptions) error {
 
 	tx, _ := c.db.Begin()
 
-	_, err := tx.Exec("INSERT INTO lists (list, name, description, hidden, locked, subscribers_only) VALUES(?,?,?,?,?,?,?)",
+	_, err := tx.Exec("INSERT INTO lists (list, name, description, hidden, locked, subscribers_only) VALUES(?,?,?,?,?,?)",
 		*o.List, *o.Name, *o.Description, hidden, locked, subscribersOnly)
 	if err != nil {
 		tx.Rollback()

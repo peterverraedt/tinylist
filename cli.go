@@ -110,7 +110,7 @@ func (c *CLI) Parse(params []string) string {
 }
 
 func assureAddress(a *string) {
-	if a == nil {
+	if a == nil || *a == "" {
 		return
 	}
 	obj, err := mail.ParseAddress(*a)

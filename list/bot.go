@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/mail"
 	"strings"
+	"time"
 )
 
 // A Bot represents a mailing list bot
@@ -36,11 +37,11 @@ func (b *Bot) Subscribe(address string, listID string, admin bool) (*List, error
 	// Switch to id - in case we were passed address
 	listID = list.ID
 
-	ok, err := list.IsSubscribed(address)
+	subscription, err := list.IsSubscribed(address)
 	if err != nil {
 		return nil, err
 	}
-	if ok {
+	if subscription != nil {
 		log.Printf("DUPLICATE_SUBSCRIPTION_REQUEST User=%q List=%q\n", address, listID)
 		return list, fmt.Errorf("You are already subscribed to %s", listID)
 	}
@@ -75,27 +76,31 @@ func (b *Bot) Unsubscribe(address string, listID string, admin bool) (*List, err
 	// Switch to id - in case we were passed address
 	listID = list.ID
 
-	ok, err := list.IsSubscribed(address)
+	subscription, err := list.IsSubscribed(address)
 	if err != nil {
 		return nil, err
 	}
-	if !ok {
+	if subscription == nil {
 		log.Printf("DUPLICATE_UNSUBSCRIPTION_REQUEST User=%q List=%q\n", address, listID)
 		return list, fmt.Errorf("You aren't subscribed to %s", listID)
 	}
 
+	// If a list is locked, set bounces instead to maximum
 	if list.Locked && !admin {
-		log.Printf("UNSUBSCRIPTION_REQUEST_BLOCKED User=%q List=%q\n", address, listID)
-		return list, fmt.Errorf("List %s is locked, only admins can remove subscribers", listID)
+		err = list.SetBounce(address, 65535, time.Now())
+		if err != nil {
+			log.Printf("DIVERTED_UNSUBSCRIPTION_FAILED User=%q List=%q Error=%s\n", address, listID, err.Error())
+			return list, fmt.Errorf("Unsubscription to %s failed with error %s", listID, err.Error())
+		}
+		log.Printf("UNSUBSCRIPTION_REQUEST_DIVERTED User=%q List=%q\n", address, listID)
+	} else {
+		err = list.Unsubscribe(address)
+		if err != nil {
+			log.Printf("UNSUBSCRIPTION_FAILED User=%q List=%q Error=%s\n", address, listID, err.Error())
+			return list, fmt.Errorf("Unsubscription to %s failed with error %s", listID, err.Error())
+		}
+		log.Printf("SUBSCRIPTION_REMOVED User=%q List=%q\n", address, listID)
 	}
-
-	err = list.Unsubscribe(address)
-	if err != nil {
-		log.Printf("UNSUBSCRIPTION_FAILED User=%q List=%q Error=%s\n", address, listID, err.Error())
-		return list, fmt.Errorf("Unsubscription to %s failed with error %s", listID, err.Error())
-	}
-
-	log.Printf("SUBSCRIPTION_REMOVED User=%q List=%q\n", address, listID)
 	return list, nil
 }
 
@@ -109,25 +114,29 @@ func (b *Bot) UnsubscribeAll(address string, admin bool) ([]*List, error) {
 	unsubscribed := []*List{}
 
 	for _, list := range lists {
-		ok, err := list.IsSubscribed(address)
+		subscription, err := list.IsSubscribed(address)
 		if err != nil {
 			return nil, err
 		}
-		if !ok {
+		if subscription == nil {
 			continue
 		}
 
 		if list.Locked && !admin {
-			log.Printf("UNSUBSCRIPTION_REQUEST_BLOCKED User=%q List=%q\n", address, list.ID)
-			continue
+			err = list.SetBounce(address, 65535, time.Now())
+			if err != nil {
+				log.Printf("DIVERTED_UNSUBSCRIPTION_FAILED User=%q List=%q Error=%s\n", address, list.ID, err.Error())
+				return nil, fmt.Errorf("Unsubscription to %s failed with error %s", list.ID, err.Error())
+			}
+			log.Printf("UNSUBSCRIPTION_REQUEST_DIVERTED User=%q List=%q\n", address, list.ID)
+		} else {
+			err = list.Unsubscribe(address)
+			if err != nil {
+				log.Printf("UNSUBSCRIPTION_FAILED User=%q List=%q Error=%s\n", address, list.ID, err.Error())
+				return nil, fmt.Errorf("Unsubscription to %s failed with error %s", list.ID, err.Error())
+			}
+			log.Printf("SUBSCRIPTION_REMOVED User=%q List=%q\n", address, list.ID)
 		}
-
-		err = list.Unsubscribe(address)
-		if err != nil {
-			log.Printf("UNSUBSCRIPTION_FAILED User=%q List=%q Error=%s\n", address, list.ID, err.Error())
-			return nil, fmt.Errorf("Unsubscription to %s failed with error %s", list.ID, err.Error())
-		}
-
 		unsubscribed = append(unsubscribed, list)
 	}
 

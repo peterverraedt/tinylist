@@ -61,7 +61,7 @@ func (list *List) Send(msg *Message, envelopeSender string, SMTPHostname string,
 	if len(parts) < 2 {
 		return fmt.Errorf("Invalid envelope sender %s", envelopeSender)
 	}
-	envelopeSender = fmt.Sprintf("%s+%s@%s", parts[0], strings.ReplaceAll(list.ID, "@", "="), parts[1])
+	envelopeSender = fmt.Sprintf("%s+%s@%s", parts[0], strings.Replace(list.ID, "@", "=", 1), parts[1])
 	
 	// Collect recipients
 	recipients := []string{}

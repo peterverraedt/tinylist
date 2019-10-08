@@ -132,7 +132,7 @@ func (msg *Message) SendVERP(envelopeSender string, recipients []string, SMTPHos
 
 	errors := []error{}
 	for _, recipient := range recipients {
-		envelope := fmt.Sprintf("%s+%s@%s", parts[0], strings.ReplaceAll(recipient, "@", "="), parts[1])
+		envelope := fmt.Sprintf("%s+%s@%s", parts[0], strings.Replace(recipient, "@", "=", 1), parts[1])
 		err := msg.Send(envelope, []string{recipient}, SMTPHostname, SMTPPort, SMTPUsername, SMTPPassword, debug)
 		// Try others too
 		if err != nil {

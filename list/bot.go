@@ -194,7 +194,7 @@ func (b *Bot) HandleMessage(msg *Message) error {
 
 func (b *Bot) handleCommand(msg *Message) error {
 	parts := strings.Split(msg.Subject, " ")
-	if len(parts) > 1 {
+	if len(parts) > 0 {
 		switch parts[0] {
 		case "lists":
 			log.Printf("LISTS_ISSUED From=%q", msg.From)
@@ -221,7 +221,7 @@ func (b *Bot) handleCommand(msg *Message) error {
 			log.Printf("HELP_ISSUED From=%q", msg.From)
 			return b.replyLines(msg, b.commandInfo())
 		case "subscribe":
-			if len(parts) > 2 {
+			if len(parts) > 1 {
 				obj, err := mail.ParseAddress(msg.From)
 				if err != nil {
 					return b.reply(msg, err.Error())
@@ -233,7 +233,7 @@ func (b *Bot) handleCommand(msg *Message) error {
 				return b.reply(msg, fmt.Sprintf("You are now subscribed to %s", list.ID))
 			}
 		case "unsubscribe":
-			if len(parts) > 2 {
+			if len(parts) > 1 {
 				obj, err := mail.ParseAddress(msg.From)
 				if err != nil {
 					return b.reply(msg, err.Error())

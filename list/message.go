@@ -153,7 +153,7 @@ func (msg *Message) Send(envelopeSender string, recipients []string, SMTPHostnam
 	if SMTPUsername != "" {
 		auth = smtp.PlainAuth("", SMTPUsername, SMTPPassword, SMTPHostname)
 	}
-	return smtp.SendMail(fmt.Sprintf("%s:%d", SMTPHostname, SMTPPort), auth, envelopeSender, recipients, []byte(msg.String()))
+	return SendMail(fmt.Sprintf("%s:%d", SMTPHostname, SMTPPort), auth, envelopeSender, recipients, []byte(msg.String()))
 }
 
 // SendDebug returns a string describing the message that would be sent, and its recipients

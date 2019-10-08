@@ -75,7 +75,7 @@ func (msg *Message) ResendAs(list *List, commandAddress string) *Message {
 	send.XList = fmt.Sprintf("%s <%s>", list.Name, list.ID)
 	if !list.Locked {
 		// TODO: fix this
-		send.ListUnsubscribe = fmt.Sprintf("<mailto:%s?subject=unsubscribe%%20%s>", commandAddress, list.ID)
+		send.ListUnsubscribe = fmt.Sprintf("<mailto:%s?subject=unsubscribe>", commandAddress)
 	}
 
 	// If the destination mailing list is in the Bcc field, keep it there

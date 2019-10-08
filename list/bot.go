@@ -55,6 +55,8 @@ func (b *Bot) Subscribe(address string, listID string, admin bool) (*List, error
 		log.Printf("SUBSCRIPTION_FAILED User=%q List=%q Error=%s\n", address, listID, err.Error())
 		return list, fmt.Errorf("Subscription to %s failed with error %s", listID, err.Error())
 	}
+
+	log.Printf("SUBSCRIPTION_ADDED User=%q List=%q\n", address, listID)
 	return list, nil
 }
 
@@ -92,7 +94,48 @@ func (b *Bot) Unsubscribe(address string, listID string, admin bool) (*List, err
 		log.Printf("UNSUBSCRIPTION_FAILED User=%q List=%q Error=%s\n", address, listID, err.Error())
 		return list, fmt.Errorf("Unsubscription to %s failed with error %s", listID, err.Error())
 	}
+
+	log.Printf("SUBSCRIPTION_REMOVED User=%q List=%q\n", address, listID)
 	return list, nil
+}
+
+// Unsubscribe a given address from a listID
+func (b *Bot) UnsubscribeAll(address string, admin bool) ([]*List, error) {
+	lists, err := b.Lists()
+	if err != nil {
+		return nil, err
+	}
+
+	unsubscribed := []*List{}
+
+	for _, list := range lists {
+		ok, err := list.IsSubscribed(address)
+		if err != nil {
+			return nil, err
+		}
+		if !ok {
+			continue
+		}
+
+		if list.Locked && !admin {
+			log.Printf("UNSUBSCRIPTION_REQUEST_BLOCKED User=%q List=%q\n", address, list.ID)
+			continue
+		}
+
+		err = list.Unsubscribe(address)
+		if err != nil {
+			log.Printf("UNSUBSCRIPTION_FAILED User=%q List=%q Error=%s\n", address, list.ID, err.Error())
+			return nil, fmt.Errorf("Unsubscription to %s failed with error %s", list.ID, err.Error())
+		}
+
+		unsubscribed = append(unsubscribed, list)
+	}
+
+	if len(unsubscribed) == 0 {
+		log.Printf("INVALID_UNSUBSCRIPTION_REQUEST User=%q List=ALL\n", address)
+		return nil, fmt.Errorf("Unable to unsubscribe %s from any list - no subcriptions found", address)
+	}
+	return unsubscribed, nil
 }
 
 // Handle a message from a io.Reader
@@ -167,7 +210,7 @@ func (b *Bot) handleCommand(msg *Message) error {
 			return b.replyLines(msg, b.commandInfo())
 		case "subscribe":
 			if len(parts) > 2 {
-				obj, err :=  mail.ParseAddress(msg.From)
+				obj, err := mail.ParseAddress(msg.From)
 				if err != nil {
 					return b.reply(msg, err.Error())
 				}
@@ -179,7 +222,7 @@ func (b *Bot) handleCommand(msg *Message) error {
 			}
 		case "unsubscribe":
 			if len(parts) > 2 {
-				obj, err :=  mail.ParseAddress(msg.From)
+				obj, err := mail.ParseAddress(msg.From)
 				if err != nil {
 					return b.reply(msg, err.Error())
 				}
@@ -188,6 +231,20 @@ func (b *Bot) handleCommand(msg *Message) error {
 					return b.reply(msg, err.Error())
 				}
 				return b.reply(msg, fmt.Sprintf("You are now unsubscribed from %s", list.ID))
+			} else if len(parts) == 1 {
+				obj, err := mail.ParseAddress(msg.From)
+				if err != nil {
+					return b.reply(msg, err.Error())
+				}
+				lists, err := b.UnsubscribeAll(obj.Address, false)
+				if err != nil {
+					return b.reply(msg, err.Error())
+				}
+				listIDs := []string{}
+				for _, list := range lists {
+					listIDs = append(listIDs, list.ID)
+				}
+				return b.reply(msg, fmt.Sprintf("You are now unsubscribed from %s", strings.Join(listIDs, ", ")))
 			}
 		}
 	}

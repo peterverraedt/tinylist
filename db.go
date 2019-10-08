@@ -2,8 +2,6 @@ package main
 
 import (
 	"database/sql"
-	"log"
-
 	_ "github.com/mattn/go-sqlite3"
 
 	"github.com/peterverraedt/nanolist/list"
@@ -69,7 +67,7 @@ func (c *Config) Lists() ([]*list.List, error) {
 
 // LookupLists returns a specific list, or nil if not found
 func (c *Config) LookupList(name string) (*list.List, error) {
-	rows, err := c.db.Query("SELECT list, name, description, hidden, locked, subscribers_only FROM lists WHERE list=? OR address=?", name, name)
+	rows, err := c.db.Query("SELECT list, name, description, hidden, locked, subscribers_only FROM lists WHERE list=?", name)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -190,22 +188,12 @@ func (c *Config) listSubscribers(id string) ([]string, error) {
 
 func (c *Config) subscribe(id string, user string) error {
 	_, err := c.db.Exec("INSERT INTO subscriptions (user,list) VALUES(?,?)", user, id)
-	if err != nil {
-		return err
-	}
-
-	log.Printf("SUBSCRIPTION_ADDED User=%q List=%q\n", user, id)
-	return nil
+	return err
 }
 
 func (c *Config) unsubscribe(id string, user string) error {
 	_, err := c.db.Exec("DELETE FROM subscriptions WHERE user=? AND list=?", user, id)
-	if err != nil {
-		return err
-	}
-
-	log.Printf("SUBSCRIPTION_REMOVED User=%q List=%q\n", user, id)
-	return nil
+	return err
 }
 
 // Create a list

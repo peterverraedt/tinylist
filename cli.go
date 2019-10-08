@@ -7,7 +7,7 @@ import (
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 
-// a CLI variable collection object
+// A CLI variable collection object
 type CLI struct {
 	app                *kingpin.Application
 	Debug              *bool

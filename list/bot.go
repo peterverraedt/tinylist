@@ -16,13 +16,17 @@ type Bot struct {
 	SMTPPort       uint64 `ini:"smtp_port"`
 	SMTPUsername   string `ini:"smtp_username"`
 	SMTPPassword   string `ini:"smtp_password"`
-	Lists          map[string]*List
+	Lists          func() ([]*List, error)
+	LookupList     func(string) (*List, error)
 	Debug          bool
 }
 
 // Subscribe a given address to a listID
 func (b *Bot) Subscribe(address string, listID string, admin bool) (*List, error) {
-	list := b.lookupList(listID)
+	list, err := b.LookupList(listID)
+	if err != nil {
+		return nil, err
+	}
 
 	if list == nil {
 		log.Printf("INVALID_SUBSCRIPTION_REQUEST User=%q List=%q\n", address, listID)
@@ -56,7 +60,10 @@ func (b *Bot) Subscribe(address string, listID string, admin bool) (*List, error
 
 // Unsubscribe a given address from a listID
 func (b *Bot) Unsubscribe(address string, listID string, admin bool) (*List, error) {
-	list := b.lookupList(listID)
+	list, err := b.LookupList(listID)
+	if err != nil {
+		return nil, err
+	}
 
 	if list == nil {
 		log.Printf("INVALID_UNSUBSCRIPTION_REQUEST User=%q List=%q\n", address, listID)
@@ -105,7 +112,10 @@ func (b *Bot) HandleMessage(msg *Message) error {
 	if b.isToCommandAddress(msg) {
 		return b.handleCommand(msg)
 	}
-	lists := b.lookupLists(msg)
+	lists, err := b.lookupLists(msg)
+	if err != nil {
+		return err
+	}
 	if len(lists) > 0 {
 		for _, list := range lists {
 			if list.CanPost(msg.From) {
@@ -134,8 +144,13 @@ func (b *Bot) handleCommand(msg *Message) error {
 		case "lists":
 			log.Printf("LISTS_ISSUED From=%q", msg.From)
 
+			lists, err := b.Lists()
+			if err != nil {
+				return err
+			}
+
 			lines := []string{"Available mailing lists:", ""}
-			for _, list := range b.Lists {
+			for _, list := range lists {
 				if !list.Hidden {
 					lines = append(lines,
 						fmt.Sprintf("Id: %s", list.ID),
@@ -226,13 +241,16 @@ func (b *Bot) isToCommandAddress(msg *Message) bool {
 }
 
 // Retrieve a list of mailing lists that are recipients of the given message
-func (b *Bot) lookupLists(msg *Message) []*List {
+func (b *Bot) lookupLists(msg *Message) ([]*List, error) {
 	lists := []*List{}
 
 	toList, err := mail.ParseAddressList(msg.To)
 	if err == nil {
 		for _, to := range toList {
-			list := b.lookupList(to.Address)
+			list, err := b.LookupList(to.Address)
+			if err != nil {
+				return nil, err
+			}
 			if list != nil {
 				lists = append(lists, list)
 			}
@@ -242,7 +260,10 @@ func (b *Bot) lookupLists(msg *Message) []*List {
 	ccList, err := mail.ParseAddressList(msg.Cc)
 	if err == nil {
 		for _, cc := range ccList {
-			list := b.lookupList(cc.Address)
+			list, err := b.LookupList(cc.Address)
+			if err != nil {
+				return nil, err
+			}
 			if list != nil {
 				lists = append(lists, list)
 			}
@@ -252,24 +273,17 @@ func (b *Bot) lookupLists(msg *Message) []*List {
 	bccList, err := mail.ParseAddressList(msg.Bcc)
 	if err == nil {
 		for _, bcc := range bccList {
-			list := b.lookupList(bcc.Address)
+			list, err := b.LookupList(bcc.Address)
+			if err != nil {
+				return nil, err
+			}
 			if list != nil {
 				lists = append(lists, list)
 			}
 		}
 	}
 
-	return lists
-}
-
-// Look up a mailing list by id or address
-func (b *Bot) lookupList(listKey string) *List {
-	for _, list := range b.Lists {
-		if listKey == list.ID || listKey == list.Address {
-			return list
-		}
-	}
-	return nil
+	return lists, nil
 }
 
 func (b *Bot) reply(msg *Message, message string) error {

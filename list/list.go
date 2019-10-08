@@ -1,5 +1,9 @@
 package list
 
+import (
+	"fmt"
+)
+
 // List represents a mailing list
 type List struct {
 	ID              string
@@ -51,4 +55,10 @@ func (list *List) Send(msg *Message, envelopeSender string, SMTPHostname string,
 		recipients = append(recipients, bcc)
 	}
 	return msg.Send(envelopeSender, recipients, SMTPHostname, SMTPPort, SMTPUsername, SMTPPassword, debug)
+}
+
+func (list *List) String() string {
+	subscribers, _ := list.Subscribers()
+	return fmt.Sprintf("List %s (%s):\n  Name: %s\n  Description: %s\n  Hidden: %v | Locked: %v | Subscribers only: %v\n  Posters: %v\n  Bcc: %v\n  Subscribers: %v",
+		list.ID, list.Address, list.Name, list.Description, list.Hidden, list.Locked, list.SubscribersOnly, list.Posters, list.Bcc, subscribers)
 }

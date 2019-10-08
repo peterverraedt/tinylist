@@ -1,14 +1,13 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
+	"gopkg.in/ini.v1"
 	"io"
 	"log"
 	"net/smtp"
 	"os"
-	"strings"
-
-	"gopkg.in/ini.v1"
 
 	"github.com/peterverraedt/nanolist/list"
 )
@@ -18,6 +17,7 @@ type Config struct {
 	Log      string `ini:"log"`
 	Database string `ini:"database"`
 	Bot      *list.Bot
+	db       *sql.DB
 }
 
 // NewConfig from the on-disk config file
@@ -46,40 +46,26 @@ func NewConfig(configFile string, debug bool) *Config {
 	c.Bot = &list.Bot{}
 	err = cfg.Section("bot").MapTo(c.Bot)
 	if err != nil {
-		log.Fatalf("CONFIG_ERROR Error=%q\n", err.Error())
+		log.Fatalf("CONFIG_ERROR [bot] Error=%q\n", err.Error())
 	}
 	if debug {
 		c.Bot.Debug = true
 	}
 
-	c.Bot.Lists = make(map[string]*list.List)
-
-	for _, section := range cfg.ChildSections("list") {
-		list := &list.List{}
-		err = section.MapTo(list)
-		if err != nil {
-			log.Fatalf("CONFIG_ERROR Error=%q\n", err.Error())
-		}
-		list.ID = strings.TrimPrefix(section.Name(), "list.")
-		list.Subscribe = func(address string) error { return c.addSubscription(address, list.ID) }
-		list.Unsubscribe = func(address string) error { return c.removeSubscription(address, list.ID) }
-		list.Subscribers = func() ([]string, error) { return c.fetchSubscribers(list.ID) }
-		list.IsSubscribed = func(address string) (bool, error) { return c.isSubscribed(address, list.ID) }
-		c.Bot.Lists[list.Address] = list
+	err = c.openDB()
+	if err != nil {
+		log.Fatalf("CONFIG_ERROR [db] Error=%q\n", err.Error())
 	}
+
+	c.Bot.Lists = c.Lists
+	c.Bot.LookupList = c.LookupList
 
 	return c
 }
 
 // CheckConfig checks for a valid configuration
 func (c *Config) CheckConfig() bool {
-	_, err := c.openDB()
-	if err != nil {
-		fmt.Printf("There's a problem with the database: %s\n", err.Error())
-		return false
-	}
-
-	err = c.openLog()
+	err := c.openLog()
 	if err != nil {
 		fmt.Printf("There's a problem with the log: %s\n", err.Error())
 		return false

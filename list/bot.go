@@ -164,6 +164,9 @@ func (b *Bot) HandleMessage(msg *Message) error {
 	if b.isToCommandAddress(msg) {
 		return b.handleCommand(msg)
 	}
+	if br := b.isToBounceAddress(msg); br != nil {
+		return b.handleBounce(msg, br)
+	}
 	lists, err := b.lookupLists(msg)
 	if err != nil {
 		return err
@@ -264,6 +267,46 @@ func (b *Bot) handleCommand(msg *Message) error {
 	}, b.commandInfo()...))
 }
 
+func (b *Bot) handleBounce(msg *Message, br *BounceResponse) error {
+	if br.Address == "" || br.List == "" {
+		log.Printf("UNKNOWN_BOUNCE From=%q Subject=%s", msg.From, msg.Subject)
+		return nil
+	}
+
+	list, err := b.LookupList(br.List)
+	if err != nil {
+		log.Printf("BOUNCE_LOOKUP_ERROR User=%q List=%s Error=%s", br.Address, br.List, err.Error())
+		return err
+	}
+	if list == nil {
+		log.Printf("BOUNCE_UNKNOWN_LIST User=%q List=%q\n", br.Address, br.List)
+		return nil
+	}
+
+	subscription, err := list.IsSubscribed(br.Address)
+	if err != nil {
+		log.Printf("BOUNCE_LOOKUP_ERROR User=%q List=%q Error=%s", br.Address, br.List, err.Error())
+		return err
+	}
+
+	if subscription == nil {
+		log.Printf("BOUNCE_UNSUBSCRIBED_USER User=%q List=%q\n", br.Address, br.List)
+		return nil
+	}
+
+	// Increase bounces
+	bounces := subscription.Bounces
+	if bounces < 65535 {
+		bounces++
+	}
+	
+	err = list.SetBounce(br.Address, bounces, time.Now())
+	if err != nil {
+		log.Printf("BOUNCE_SET_ERROR User=%q List=%q Error=%s\n", br.Address, br.List, err.Error())
+	}
+	return err
+}
+
 func (b *Bot) commandInfo() []string {
 	return []string{
 		"    help",
@@ -311,6 +354,70 @@ func (b *Bot) isToCommandAddress(msg *Message) bool {
 	}
 
 	return false
+}
+
+type BounceResponse struct {
+	BounceAddress string
+	List string
+	Address string
+}
+
+func parseBounce(address string) *BounceResponse {
+	splitDomain := strings.SplitN(address, "@", 2)
+	if len(splitDomain) < 2 {
+		return nil
+	}
+
+	br := &BounceResponse{}
+
+	parts := strings.SplitN(splitDomain[0], "+", 3)
+	br.BounceAddress = fmt.Sprintf("%s@%s", parts[0], splitDomain[1])
+
+	if len(parts) > 1 {
+		i := strings.LastIndex(parts[1], "=")
+		br.List = fmt.Sprintf("%s@%s", parts[1][:i], parts[1][i+1:])
+	}
+
+	if len(parts) > 2 {
+		i := strings.LastIndex(parts[2], "=")
+		br.Address = fmt.Sprintf("%s@%s", parts[1][:i], parts[1][i+1:])
+	}
+
+	return br
+}
+
+func (b *Bot) isToBounceAddress(msg *Message) *BounceResponse {
+	toList, err := mail.ParseAddressList(msg.To)
+	if err == nil {
+		for _, to := range toList {
+			br := parseBounce(to.Address)
+			if br != nil && br.BounceAddress == b.BouncesAddress {
+				return br
+			}
+		}
+	}
+
+	ccList, err := mail.ParseAddressList(msg.Cc)
+	if err == nil {
+		for _, cc := range ccList {
+			br := parseBounce(cc.Address)
+			if br != nil && br.BounceAddress == b.BouncesAddress {
+				return br
+			}
+		}
+	}
+
+	bccList, err := mail.ParseAddressList(msg.Bcc)
+	if err == nil {
+		for _, bcc := range bccList {
+			br := parseBounce(bcc.Address)
+			if br != nil && br.BounceAddress == b.BouncesAddress {
+				return br
+			}
+		}
+	}
+
+	return nil
 }
 
 // Retrieve a list of mailing lists that are recipients of the given message

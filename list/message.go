@@ -9,6 +9,7 @@ import (
 	"net/mail"
 	"net/smtp"
 	"time"
+	"strings"
 )
 
 // Message represents an e-mail message
@@ -122,10 +123,30 @@ func (msg *Message) String() string {
 	return buf.String()
 }
 
-// Send a Message using an SMTP server
+// SendVERP sends a Message using an VARP
+func (msg *Message) SendVERP(envelopeSender string, recipients []string, SMTPHostname string, SMTPPort uint64, SMTPUsername string, SMTPPassword string, debug bool) []error {
+	parts := strings.SplitN(envelopeSender, "@", 2)
+	if len(parts) < 2 {
+		return []error{fmt.Errorf("Invalid envelope sender %s", envelopeSender)}
+	}
+
+	errors := []error{}
+	for _, recipient := range recipients {
+		envelope := fmt.Sprintf("%s+%s@%s", parts[0], strings.ReplaceAll(recipient, "@", "="), parts[1])
+		err := msg.Send(envelope, []string{recipient}, SMTPHostname, SMTPPort, SMTPUsername, SMTPPassword, debug)
+		// Try others too
+		if err != nil {
+			errors = append(errors, err)
+		}
+	}
+	
+	return errors
+}
+
+// Send a Message
 func (msg *Message) Send(envelopeSender string, recipients []string, SMTPHostname string, SMTPPort uint64, SMTPUsername string, SMTPPassword string, debug bool) error {
 	if debug {
-		log.Print(msg.SendDebug(recipients))
+		log.Print(msg.SendDebug(envelopeSender, recipients))
 		return nil
 	}
 	var auth smtp.Auth
@@ -136,8 +157,8 @@ func (msg *Message) Send(envelopeSender string, recipients []string, SMTPHostnam
 }
 
 // SendDebug returns a string describing the message that would be sent, and its recipients
-func (msg *Message) SendDebug(recipients []string) string {
-	out := fmt.Sprintf("------------------------------------------------------------\nSENDING MESSAGE TO:\n")
+func (msg *Message) SendDebug(envelopeSender string, recipients []string) string {
+	out := fmt.Sprintf("------------------------------------------------------------\nSENDING MESSAGE FROM %s TO:\n", envelopeSender)
 	for _, r := range recipients {
 		out = out + fmt.Sprintf(" - %s\n", r)
 	}

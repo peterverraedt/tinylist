@@ -3,6 +3,7 @@ package list
 import (
 	"fmt"
 	"time"
+	"strings"
 )
 
 // List represents a mailing list
@@ -55,6 +56,14 @@ func (list *List) CanPost(from string) bool {
 
 // Send a message to the mailing list
 func (list *List) Send(msg *Message, envelopeSender string, SMTPHostname string, SMTPPort uint64, SMTPUsername string, SMTPPassword string, debug bool) error {
+	// Append list id to envelope sender
+	parts := strings.SplitN(envelopeSender, "@", 2)
+	if len(parts) < 2 {
+		return fmt.Errorf("Invalid envelope sender %s", envelopeSender)
+	}
+	envelopeSender = fmt.Sprintf("%s+%s@%s", parts[0], strings.ReplaceAll(list.ID, "@", "="), parts[1])
+	
+	// Collect recipients
 	recipients := []string{}
 	subscriptions, err := list.Subscribers()
 	if err != nil {
@@ -66,7 +75,13 @@ func (list *List) Send(msg *Message, envelopeSender string, SMTPHostname string,
 	for _, bcc := range list.Bcc {
 		recipients = append(recipients, bcc)
 	}
-	return msg.Send(envelopeSender, recipients, SMTPHostname, SMTPPort, SMTPUsername, SMTPPassword, debug)
+
+	// Send using VERP
+	errors := msg.SendVERP(envelopeSender, recipients, SMTPHostname, SMTPPort, SMTPUsername, SMTPPassword, debug)
+	if len(errors) > 0 {
+		return fmt.Errorf("%d errors occurred during sending: %v", len(errors), errors)
+	}
+	return nil
 }
 
 func (list *List) String() string {

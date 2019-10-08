@@ -153,10 +153,9 @@ func (b *Bot) handleCommand(msg *Message) error {
 			for _, list := range lists {
 				if !list.Hidden {
 					lines = append(lines,
-						fmt.Sprintf("Id: %s", list.ID),
+						fmt.Sprintf("ID: %s", list.ID),
 						fmt.Sprintf("Name: %s", list.Name),
 						fmt.Sprintf("Description: %s", list.Description),
-						fmt.Sprintf("Address: %s", list.Address),
 						"")
 				}
 			}
@@ -168,7 +167,11 @@ func (b *Bot) handleCommand(msg *Message) error {
 			return b.replyLines(msg, b.commandInfo())
 		case "subscribe":
 			if len(parts) > 2 {
-				list, err := b.Subscribe(msg.From, parts[1], false)
+				obj, err :=  mail.ParseAddress(msg.From)
+				if err != nil {
+					return b.reply(msg, err.Error())
+				}
+				list, err := b.Subscribe(obj.Address, parts[1], false)
 				if err != nil {
 					return b.reply(msg, err.Error())
 				}
@@ -176,7 +179,11 @@ func (b *Bot) handleCommand(msg *Message) error {
 			}
 		case "unsubscribe":
 			if len(parts) > 2 {
-				list, err := b.Unsubscribe(msg.From, parts[1], false)
+				obj, err :=  mail.ParseAddress(msg.From)
+				if err != nil {
+					return b.reply(msg, err.Error())
+				}
+				list, err := b.Unsubscribe(obj.Address, parts[1], false)
 				if err != nil {
 					return b.reply(msg, err.Error())
 				}

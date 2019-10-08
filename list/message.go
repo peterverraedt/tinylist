@@ -72,8 +72,9 @@ func (msg *Message) ResendAs(list *List, commandAddress string) *Message {
 	send.Date = msg.Date
 	send.ID = msg.ID
 	send.InReplyTo = msg.InReplyTo
-	send.XList = fmt.Sprintf("%s <%s>", list.ID, list.Address)
+	send.XList = fmt.Sprintf("%s <%s>", list.Name, list.ID)
 	if !list.Locked {
+		// TODO: fix this
 		send.ListUnsubscribe = fmt.Sprintf("<mailto:%s?subject=unsubscribe%%20%s>", commandAddress, list.ID)
 	}
 
@@ -81,8 +82,8 @@ func (msg *Message) ResendAs(list *List, commandAddress string) *Message {
 	bccList, err := mail.ParseAddressList(msg.Bcc)
 	if err == nil {
 		for _, bcc := range bccList {
-			if bcc.Address == list.Address {
-				send.Bcc = list.ID + " <" + list.Address + ">"
+			if bcc.Address == list.ID {
+				send.Bcc = list.Name + " <" + list.ID + ">"
 				break
 			}
 		}

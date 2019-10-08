@@ -2,10 +2,7 @@ package main
 
 import (
 	"database/sql"
-	"fmt"
 	"log"
-	"net/mail"
-	"regexp"
 
 	_ "github.com/mattn/go-sqlite3"
 
@@ -25,7 +22,6 @@ func (c *Config) openDB() (err error) {
 		"list" TEXT PRIMARY KEY,
 		"name" TEXT,
 		"description" TEXT,
-		"address" TEXT,
 		"hidden" INTEGER(1),
 		"locked" INTEGER(1),
 		"subscribers_only" INTEGER(1)
@@ -52,7 +48,7 @@ func (c *Config) openDB() (err error) {
 
 // Lists returns all lists
 func (c *Config) Lists() ([]*list.List, error) {
-	rows, err := c.db.Query("SELECT list, name, description, address, hidden, locked, subscribers_only FROM lists ORDER BY list")
+	rows, err := c.db.Query("SELECT list, name, description, hidden, locked, subscribers_only FROM lists ORDER BY list")
 	if err != nil {
 		return nil, err
 	}
@@ -73,7 +69,7 @@ func (c *Config) Lists() ([]*list.List, error) {
 
 // LookupLists returns a specific list, or nil if not found
 func (c *Config) LookupList(name string) (*list.List, error) {
-	rows, err := c.db.Query("SELECT list, name, description, address, hidden, locked, subscribers_only FROM lists WHERE list=? OR address=?", name, name)
+	rows, err := c.db.Query("SELECT list, name, description, hidden, locked, subscribers_only FROM lists WHERE list=? OR address=?", name, name)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -100,7 +96,7 @@ func (c *Config) LookupList(name string) (*list.List, error) {
 
 func (c *Config) fetchList(rows *sql.Rows) (*list.List, error) {
 	l := &list.List{}
-	err := rows.Scan(&l.ID, &l.Name, &l.Description, &l.Address, &l.Hidden, &l.Locked, &l.SubscribersOnly)
+	err := rows.Scan(&l.ID, &l.Name, &l.Description, &l.Hidden, &l.Locked, &l.SubscribersOnly)
 	if err != nil {
 		return nil, err
 	}
@@ -160,13 +156,8 @@ func (c *Config) listBcc(id string) ([]string, error) {
 }
 
 func (c *Config) isSubscribed(id string, user string) (bool, error) {
-	addressObj, err := mail.ParseAddress(user)
-	if err != nil {
-		return false, err
-	}
-
 	exists := false
-	err = c.db.QueryRow("SELECT 1 FROM subscriptions WHERE user=? AND list=?", addressObj.Address, id).Scan(&exists)
+	err := c.db.QueryRow("SELECT 1 FROM subscriptions WHERE user=? AND list=?", user, id).Scan(&exists)
 
 	if err == sql.ErrNoRows {
 		return false, nil
@@ -198,12 +189,7 @@ func (c *Config) listSubscribers(id string) ([]string, error) {
 }
 
 func (c *Config) subscribe(id string, user string) error {
-	addressObj, err := mail.ParseAddress(user)
-	if err != nil {
-		return err
-	}
-
-	_, err = c.db.Exec("INSERT INTO subscriptions (user,list) VALUES(?,?)", addressObj.Address, id)
+	_, err := c.db.Exec("INSERT INTO subscriptions (user,list) VALUES(?,?)", user, id)
 	if err != nil {
 		return err
 	}
@@ -213,12 +199,7 @@ func (c *Config) subscribe(id string, user string) error {
 }
 
 func (c *Config) unsubscribe(id string, user string) error {
-	addressObj, err := mail.ParseAddress(user)
-	if err != nil {
-		return err
-	}
-
-	_, err = c.db.Exec("DELETE FROM subscriptions WHERE user=? AND list=?", addressObj.Address, id)
+	_, err := c.db.Exec("DELETE FROM subscriptions WHERE user=? AND list=?", user, id)
 	if err != nil {
 		return err
 	}
@@ -229,16 +210,6 @@ func (c *Config) unsubscribe(id string, user string) error {
 
 // Create a list
 func (c *Config) Create(o *CLIListOptions) error {
-	re := regexp.MustCompile("^[a-zA-Z0-9_]*$")
-	if !re.MatchString(*o.List) {
-		return fmt.Errorf("List id %s contains invalid characters", *o.List)
-	}
-
-	addressObj, err := mail.ParseAddress(*o.Address)
-	if err != nil {
-		return err
-	}
-
 	var hidden, locked, subscribersOnly bool
 	for _, flag := range *o.Flags {
 		switch flag {
@@ -253,21 +224,19 @@ func (c *Config) Create(o *CLIListOptions) error {
 
 	tx, _ := c.db.Begin()
 
-	_, err = tx.Exec("INSERT INTO lists (list, name, description, address, hidden, locked, subscribers_only) VALUES(?,?,?,?,?,?,?)",
-		*o.List, *o.Name, *o.Description, addressObj.Address, hidden, locked, subscribersOnly)
+	_, err := tx.Exec("INSERT INTO lists (list, name, description, hidden, locked, subscribers_only) VALUES(?,?,?,?,?,?,?)",
+		*o.List, *o.Name, *o.Description, hidden, locked, subscribersOnly)
 	if err != nil {
 		tx.Rollback()
 		return err
 	}
 
 	for _, address := range *o.Posters {
-		addressObj, err := mail.ParseAddress(address)
-		if err != nil {
-			tx.Rollback()
-			return err
+		if address == "" {
+			continue
 		}
 
-		_, err = tx.Exec("INSERT INTO posters (list, address) VALUES(?,?)", o.List, addressObj.Address)
+		_, err = tx.Exec("INSERT INTO posters (list, address) VALUES(?,?)", o.List, address)
 		if err != nil {
 			tx.Rollback()
 			return err
@@ -275,13 +244,11 @@ func (c *Config) Create(o *CLIListOptions) error {
 	}
 
 	for _, address := range *o.Bcc {
-		addressObj, err := mail.ParseAddress(address)
-		if err != nil {
-			tx.Rollback()
-			return err
+		if address == "" {
+			continue
 		}
 
-		_, err = tx.Exec("INSERT INTO bcc (list, address) VALUES(?,?)", o.List, addressObj.Address)
+		_, err = tx.Exec("INSERT INTO bcc (list, address) VALUES(?,?)", o.List, address)
 		if err != nil {
 			tx.Rollback()
 			return err
@@ -302,21 +269,6 @@ func (c *Config) Modify(o *CLIListOptions) error {
 	if err != nil {
 		tx.Rollback()
 		return err
-	}
-
-	// Update address
-	if *o.Address != "" {
-		addressObj, err := mail.ParseAddress(*o.Address)
-		if err != nil {
-			tx.Rollback()
-			return err
-		}
-
-		_, err = tx.Exec("UPDATE lists SET address = ? WHERE list = ?", addressObj.Address, *o.List)
-		if err != nil {
-			tx.Rollback()
-			return err
-		}
 	}
 
 	if *o.Name != "" {
@@ -366,13 +318,7 @@ func (c *Config) Modify(o *CLIListOptions) error {
 				continue
 			}
 
-			addressObj, err := mail.ParseAddress(address)
-			if err != nil {
-				tx.Rollback()
-				return err
-			}
-
-			_, err = tx.Exec("INSERT INTO posters (list, address) VALUES(?,?)", *o.List, addressObj.Address)
+			_, err = tx.Exec("INSERT INTO posters (list, address) VALUES(?,?)", *o.List, address)
 			if err != nil {
 				tx.Rollback()
 				return err
@@ -392,13 +338,7 @@ func (c *Config) Modify(o *CLIListOptions) error {
 				continue
 			}
 
-			addressObj, err := mail.ParseAddress(address)
-			if err != nil {
-				tx.Rollback()
-				return err
-			}
-
-			_, err = tx.Exec("INSERT INTO bcc (list, address) VALUES(?,?)", *o.List, addressObj.Address)
+			_, err = tx.Exec("INSERT INTO bcc (list, address) VALUES(?,?)", *o.List, address)
 			if err != nil {
 				tx.Rollback()
 				return err

@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"net/mail"
 
 	"gopkg.in/alecthomas/kingpin.v2"
 )
@@ -29,7 +30,6 @@ type CLI struct {
 // CLIListOptions represent the options during creation/updates of a list
 type CLIListOptions struct {
 	List        *string
-	Address     *string
 	Name        *string
 	Description *string
 	Flags       *[]string
@@ -73,8 +73,7 @@ func NewCLI() *CLI {
 
 func addCLIListOptions(cmd *kingpin.CmdClause) *CLIListOptions {
 	return &CLIListOptions{
-		List:        cmd.Flag("list", "The list ID").Required().String(),
-		Address:     cmd.Flag("address", "The address of the mailing list, must be a valid address pointing to the nanolist pipe").String(),
+		List:        cmd.Flag("list", "The address of the mailing list, must be a valid address pointing to the nanolist pipe").Required().String(),
 		Name:        cmd.Flag("name", "The name of the new mailing list, used as a title to refer to this mailing list").String(),
 		Description: cmd.Flag("description", "The description of the new mailing list").String(),
 		Flags:       cmd.Flag("flag", "Setting flags: locked, hidden, and/or subscribers_only").Short('f').Enums("locked", "hidden", "subscribers_only", ""),
@@ -96,5 +95,46 @@ func (c *CLI) Parse(params []string) string {
 	if err != nil {
 		log.Fatal(err)
 	}
+	assureAddress(c.CreateOptions.List)
+	assureAddresses(c.CreateOptions.Posters)
+	assureAddresses(c.CreateOptions.Bcc)
+	assureAddress(c.ModifyOptions.List)
+	assureAddresses(c.ModifyOptions.Posters)
+	assureAddresses(c.ModifyOptions.Bcc)
+	assureAddress(c.DeleteList)
+	assureAddress(c.SubscribeOptions.List)
+	assureAddress(c.SubscribeOptions.Address)
+	assureAddress(c.UnsubscribeOptions.List)
+	assureAddress(c.UnsubscribeOptions.Address)
 	return command
+}
+
+func assureAddress(a *string) {
+	if a == nil {
+		return
+	}
+	obj, err := mail.ParseAddress(*a)
+	if err != nil {
+		log.Fatal(err)
+	}
+	a = &obj.Address
+}
+
+func assureAddresses(a *[]string) {
+	if a == nil {
+		return
+	}
+	r := []string{}
+	for _, v := range *a {
+		if v == "" {
+			r = append(r, "")
+		} else {
+			obj, err := mail.ParseAddress(v)
+			if err != nil {
+				log.Fatal(err)
+			}
+			r = append(r, obj.Address)
+		}
+	}
+	a = &r
 }

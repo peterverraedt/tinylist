@@ -6,10 +6,9 @@ import (
 
 // List represents a mailing list
 type List struct {
-	ID              string
+	ID              string   `ini:"address"`
 	Name            string   `ini:"name"`
 	Description     string   `ini:"description"`
-	Address         string   `ini:"address"`
 	Hidden          bool     `ini:"hidden"`
 	Locked          bool     `ini:"locked"`
 	SubscribersOnly bool     `ini:"subscribers_only"`
@@ -59,6 +58,6 @@ func (list *List) Send(msg *Message, envelopeSender string, SMTPHostname string,
 
 func (list *List) String() string {
 	subscribers, _ := list.Subscribers()
-	return fmt.Sprintf("List %s (%s):\n  Name: %s\n  Description: %s\n  Hidden: %v | Locked: %v | Subscribers only: %v\n  Posters: %v\n  Bcc: %v\n  Subscribers: %v",
-		list.ID, list.Address, list.Name, list.Description, list.Hidden, list.Locked, list.SubscribersOnly, list.Posters, list.Bcc, subscribers)
+	return fmt.Sprintf("List %s:\n  Name: %s\n  Description: %s\n  Hidden: %v | Locked: %v | Subscribers only: %v\n  Posters: %v\n  Bcc: %v\n  Subscribers: %v",
+		list.ID, list.Name, list.Description, list.Hidden, list.Locked, list.SubscribersOnly, list.Posters, list.Bcc, subscribers)
 }

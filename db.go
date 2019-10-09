@@ -98,23 +98,23 @@ func (c *Config) LookupList(name string) (*list.List, error) {
 
 func (c *Config) fetchList(rows *sql.Rows) (*list.List, error) {
 	l := &list.List{}
-	err := rows.Scan(&l.ID, &l.Name, &l.Description, &l.Hidden, &l.Locked, &l.SubscribersOnly)
+	err := rows.Scan(&l.Address, &l.Name, &l.Description, &l.Hidden, &l.Locked, &l.SubscribersOnly)
 	if err != nil {
 		return nil, err
 	}
-	l.Posters, err = c.listPosters(l.ID)
+	l.Posters, err = c.listPosters(l.Address)
 	if err != nil {
 		return nil, err
 	}
-	l.Bcc, err = c.listBcc(l.ID)
+	l.Bcc, err = c.listBcc(l.Address)
 	if err != nil {
 		return nil, err
 	}
-	l.Subscribe = func(a string) error { return c.subscribe(l.ID, a) }
-	l.Unsubscribe = func(a string) error { return c.unsubscribe(l.ID, a) }
-	l.SetBounce = func(a string, b uint16, t time.Time) error { return c.setBounce(l.ID, a, b, t) }
-	l.Subscribers = func() ([]*list.Subscription, error) { return c.listSubscribers(l.ID) }
-	l.IsSubscribed = func(a string) (*list.Subscription, error) { return c.isSubscribed(l.ID, a) }
+	l.Subscribe = func(a string) error { return c.subscribe(l.Address, a) }
+	l.Unsubscribe = func(a string) error { return c.unsubscribe(l.Address, a) }
+	l.SetBounce = func(a string, b uint16, t time.Time) error { return c.setBounce(l.Address, a, b, t) }
+	l.Subscribers = func() ([]*list.Subscription, error) { return c.listSubscribers(l.Address) }
+	l.IsSubscribed = func(a string) (*list.Subscription, error) { return c.isSubscribed(l.Address, a) }
 	return l, nil
 }
 

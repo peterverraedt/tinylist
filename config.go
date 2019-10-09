@@ -3,11 +3,12 @@ package main
 import (
 	"database/sql"
 	"fmt"
-	"gopkg.in/ini.v1"
 	"io"
 	"log"
 	"net/smtp"
 	"os"
+
+	"gopkg.in/ini.v1"
 
 	"github.com/peterverraedt/nanolist/list"
 )
@@ -64,29 +65,26 @@ func NewConfig(configFile string, debug bool) *Config {
 }
 
 // CheckConfig checks for a valid configuration
-func (c *Config) CheckConfig() bool {
+func (c *Config) CheckConfig() error {
 	err := c.openLog()
 	if err != nil {
-		fmt.Printf("There's a problem with the log: %s\n", err.Error())
-		return false
+		return fmt.Errorf("There's a problem with the log: %s", err.Error())
 	}
 
 	client, err := smtp.Dial(fmt.Sprintf("%s:%d", c.Bot.SMTPHostname, c.Bot.SMTPPort))
 	if err != nil {
-		fmt.Printf("There's a problem connecting to your SMTP server: %s\n", err.Error())
-		return false
+		return fmt.Errorf("There's a problem connecting to your SMTP server: %s", err.Error())
 	}
 
 	if c.Bot.SMTPUsername != "" {
 		auth := smtp.PlainAuth("", c.Bot.SMTPUsername, c.Bot.SMTPPassword, c.Bot.SMTPHostname)
 		err = client.Auth(auth)
 		if err != nil {
-			fmt.Printf("There's a problem authenticating with your SMTP server: %s\n", err.Error())
-			return false
+			return fmt.Errorf("There's a problem authenticating with your SMTP server: %s", err.Error())
 		}
 	}
 
-	return true
+	return nil
 }
 
 func (c *Config) openLog() error {

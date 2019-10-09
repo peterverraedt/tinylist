@@ -23,7 +23,7 @@ type Message struct {
 	Bcc             string
 	Date            string
 	Sender          string
-	ID              string
+	Address         string
 	InReplyTo       string
 	Precedence      string
 	ListID          string
@@ -60,7 +60,7 @@ func (msg *Message) FromReader(stream io.Reader) error {
 	msg.Bcc = header.Get("Bcc")
 	msg.Date = header.Get("Date")
 	msg.Sender = header.Get("Sender")
-	msg.ID = header.Get("Message-Id")
+	msg.Address = header.Get("Message-Id")
 	msg.InReplyTo = header.Get("In-Reply-To")
 	msg.Precedence = header.Get("Precedence")
 	msg.ListID = header.Get("List-Id")
@@ -106,7 +106,7 @@ func (msg *Message) Reply() *Message {
 	reply := &Message{}
 	reply.Subject = "Re: " + msg.Subject
 	reply.To = msg.From
-	reply.InReplyTo = msg.ID
+	reply.InReplyTo = msg.Address
 	reply.Date = time.Now().Format("Mon, 2 Jan 2006 15:04:05 -0700")
 	reply.MIMEVersion = "1.0"
 	reply.ContentType = "text/plain; charset=utf-8"
@@ -119,7 +119,7 @@ func (msg *Message) Reply() *Message {
 func (msg *Message) ResendAs(list *List, commandAddress string) *Message {
 	send := &Message{}
 
-	listID := fmt.Sprintf("%s <%s>", list.Name, list.ID)
+	listID := fmt.Sprintf("%s <%s>", list.Name, list.Address)
 
 	send.Subject = msg.Subject
 	send.From = msg.From
@@ -127,12 +127,12 @@ func (msg *Message) ResendAs(list *List, commandAddress string) *Message {
 	send.Cc = msg.Cc
 	send.Date = msg.Date
 	send.Sender = listID
-	send.ID = msg.ID
+	send.Address = msg.Address
 	send.InReplyTo = msg.InReplyTo
 	send.Precedence = "bulk"
 	send.ListID = listID
-	send.ListUnsubscribe = fmt.Sprintf("<mailto:%s?subject=unsubscribe%%20%s>", commandAddress, list.ID)
-	send.ListSubscribe = fmt.Sprintf("<mailto:%s?subject=subscribe%%20%s>", commandAddress, list.ID)
+	send.ListUnsubscribe = fmt.Sprintf("<mailto:%s?subject=unsubscribe%%20%s>", commandAddress, list.Address)
+	send.ListSubscribe = fmt.Sprintf("<mailto:%s?subject=subscribe%%20%s>", commandAddress, list.Address)
 	send.XMailingList = listID
 	send.XLoop = listID
 	send.MIMEVersion = msg.MIMEVersion
@@ -143,8 +143,8 @@ func (msg *Message) ResendAs(list *List, commandAddress string) *Message {
 	bccList, err := mail.ParseAddressList(msg.Bcc)
 	if err == nil {
 		for _, bcc := range bccList {
-			if bcc.Address == list.ID {
-				send.Bcc = list.Name + " <" + list.ID + ">"
+			if bcc.Address == list.Address {
+				send.Bcc = list.Name + " <" + list.Address + ">"
 				break
 			}
 		}
@@ -216,8 +216,8 @@ func (msg *Message) String() string {
 	if len(msg.Sender) > 0 {
 		fmt.Fprintf(&buf, "Sender: %s\r\n", msg.Sender)
 	}
-	if len(msg.ID) > 0 {
-		fmt.Fprintf(&buf, "Message-Id: %s\r\n", msg.ID)
+	if len(msg.Address) > 0 {
+		fmt.Fprintf(&buf, "Message-Id: %s\r\n", msg.Address)
 	}
 	if len(msg.InReplyTo) > 0 {
 		fmt.Fprintf(&buf, "In-Reply-To: %s\r\n", msg.InReplyTo)
@@ -275,23 +275,25 @@ func (msg *Message) String() string {
 }
 
 // SendVERP sends a Message using an VARP
-func (msg *Message) SendVERP(envelopeSender string, recipients []string, SMTPHostname string, SMTPPort uint64, SMTPUsername string, SMTPPassword string, debug bool) []error {
+func (msg *Message) SendVERP(envelopeSender string, recipients []string, SMTPHostname string, SMTPPort uint64, SMTPUsername string, SMTPPassword string, debug bool) error {
 	parts := strings.SplitN(envelopeSender, "@", 2)
 	if len(parts) < 2 {
-		return []error{fmt.Errorf("Invalid envelope sender %s", envelopeSender)}
+		return fmt.Errorf("Invalid envelope sender %s", envelopeSender)
 	}
 
 	errors := []error{}
 	for _, recipient := range recipients {
 		envelope := fmt.Sprintf("%s+%s@%s", parts[0], strings.Replace(recipient, "@", "=", 1), parts[1])
 		err := msg.Send(envelope, []string{recipient}, SMTPHostname, SMTPPort, SMTPUsername, SMTPPassword, debug)
-		// Try others too
 		if err != nil {
 			errors = append(errors, err)
 		}
 	}
 
-	return errors
+	if len(errors) > 0 {
+		return fmt.Errorf("%d errors occurred: %v", len(errors), errors)
+	}
+	return nil
 }
 
 // Send a Message

@@ -9,7 +9,7 @@ import (
 
 // List represents a mailing list
 type List struct {
-	ID              string   `ini:"address"`
+	Address         string   `ini:"address"`
 	Name            string   `ini:"name"`
 	Description     string   `ini:"description"`
 	Hidden          bool     `ini:"hidden"`
@@ -62,7 +62,7 @@ func (list *List) Send(msg *Message, envelopeSender string, SMTPHostname string,
 	if len(parts) < 2 {
 		return fmt.Errorf("Invalid envelope sender %s", envelopeSender)
 	}
-	envelopeSender = fmt.Sprintf("%s+%s@%s", parts[0], strings.Replace(list.ID, "@", "=", 1), parts[1])
+	envelopeSender = fmt.Sprintf("%s+%s@%s", parts[0], strings.Replace(list.Address, "@", "=", 1), parts[1])
 
 	// Collect recipients
 	recipients := []string{}
@@ -84,17 +84,13 @@ func (list *List) Send(msg *Message, envelopeSender string, SMTPHostname string,
 	}
 
 	// Send using VERP
-	errors := msg.SendVERP(envelopeSender, recipients, SMTPHostname, SMTPPort, SMTPUsername, SMTPPassword, debug)
-	if len(errors) > 0 {
-		return fmt.Errorf("%d errors occurred during sending: %v", len(errors), errors)
-	}
-	return nil
+	return msg.SendVERP(envelopeSender, recipients, SMTPHostname, SMTPPort, SMTPUsername, SMTPPassword, debug)
 }
 
 func (list *List) String() string {
 	subscribers, _ := list.Subscribers()
 	out := fmt.Sprintf("Name: %s <%s>\nDescription: %s\nHidden: %v | Locked: %v | Subscribers only: %v\nPosters: %v\nBcc: %v\nSubscribers:",
-		list.Name, list.ID, list.Description, list.Hidden, list.Locked, list.SubscribersOnly, list.Posters, list.Bcc)
+		list.Name, list.Address, list.Description, list.Hidden, list.Locked, list.SubscribersOnly, list.Posters, list.Bcc)
 	for _, subscription := range subscribers {
 		ok, _ := list.CheckBounces(subscription)
 		if ok {

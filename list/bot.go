@@ -380,7 +380,7 @@ func parseBounce(address string) *BounceResponse {
 
 	if len(parts) > 2 {
 		i := strings.LastIndex(parts[2], "=")
-		br.Address = fmt.Sprintf("%s@%s", parts[1][:i], parts[1][i+1:])
+		br.Address = fmt.Sprintf("%s@%s", parts[2][:i], parts[2][i+1:])
 	}
 
 	return br

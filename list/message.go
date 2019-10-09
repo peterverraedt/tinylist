@@ -46,7 +46,7 @@ func (msg *Message) FromReader(stream io.Reader) error {
 	header := textproto.MIMEHeader(inMessage.Header)
 	msg.Subject = header.Get("Subject")
 	msg.From = header.Get("From")
-	msg.ID = header.Get("Message-ID")
+	msg.ID = header.Get("Message-Id")
 	msg.InReplyTo = header.Get("In-Reply-To")
 	msg.Body = body
 	msg.To = header.Get("To")
@@ -58,7 +58,7 @@ func (msg *Message) FromReader(stream io.Reader) error {
 
 	header.Del("Subject")
 	header.Del("From")
-	header.Del("Message-ID")
+	header.Del("Message-Id")
 	header.Del("In-Reply-To")
 	header.Del("To")
 	header.Del("Cc")
@@ -89,8 +89,13 @@ func (msg *Message) Reply() *Message {
 // ResendAs a list prepares a copy of the message to be used for a list forward
 func (msg *Message) ResendAs(list *List, commandAddress string) *Message {
 	send := &Message{}
+
+	// For DMARC - do not alter DKIM signatures (keep subject, from, body intact)
 	send.Subject = msg.Subject
 	send.From = msg.From
+	send.Body = msg.Body
+
+	// Modify the headers below as needeed
 	send.To = msg.To
 	send.Cc = msg.Cc
 	send.Date = msg.Date
@@ -102,8 +107,6 @@ func (msg *Message) ResendAs(list *List, commandAddress string) *Message {
 	}
 	send.MIMEVersion = msg.MIMEVersion
 	send.ContentType = msg.ContentType
-	send.Headers = msg.Headers
-	send.Body = msg.Body
 
 	// If the destination mailing list is in the Bcc field, keep it there
 	bccList, err := mail.ParseAddressList(msg.Bcc)
@@ -115,6 +118,37 @@ func (msg *Message) ResendAs(list *List, commandAddress string) *Message {
 			}
 		}
 	}
+
+	// Copy other headers unmodified (e.g. DKIM signatures)
+	send.Headers = map[string][]string{}
+	for key, values := range msg.Headers {
+		// Filter keys
+		switch textproto.CanonicalMIMEHeaderKey(key) {
+		case "Received":
+			continue
+		case "X-Original-To":
+			continue
+		case "X-Received":
+			continue
+		case "Delivered-To":
+			continue
+		case "Sender":
+			continue
+		case "Return-Path":
+			continue
+		}
+
+		for index, value := range values {
+			// If value contains newline, strip it
+			i := strings.IndexAny(value, "\r\n")
+			if i >= 0 {
+				values[index] = value[:i]
+			}
+		}
+
+		send.Headers[key] = values
+	}
+
 	return send
 }
 
@@ -134,7 +168,7 @@ func (msg *Message) String() string {
 		fmt.Fprintf(&buf, "Date: %s\r\n", msg.Date)
 	}
 	if len(msg.ID) > 0 {
-		fmt.Fprintf(&buf, "Messsage-ID: %s\r\n", msg.ID)
+		fmt.Fprintf(&buf, "Message-Id: %s\r\n", msg.ID)
 	}
 	if len(msg.InReplyTo) > 0 {
 		fmt.Fprintf(&buf, "In-Reply-To: %s\r\n", msg.InReplyTo)

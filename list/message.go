@@ -122,8 +122,10 @@ func (msg *Message) ResendAs(list *List, commandAddress string) *Message {
 	// Copy other headers unmodified (e.g. DKIM signatures)
 	send.Headers = map[string][]string{}
 	for key, values := range msg.Headers {
+		canonicKey := textproto.CanonicalMIMEHeaderKey(key)
+
 		// Filter keys
-		switch textproto.CanonicalMIMEHeaderKey(key) {
+		switch canonicKey {
 		case "Received":
 			continue
 		case "X-Original-To":
@@ -138,6 +140,11 @@ func (msg *Message) ResendAs(list *List, commandAddress string) *Message {
 			continue
 		}
 
+		// Keys with spaces are probably malformed
+		if strings.Index(canonicKey, " ") >= 0 {
+			continue
+		}
+
 		for index, value := range values {
 			// If value contains newline, strip it
 			i := strings.IndexAny(value, "\r\n")
@@ -146,7 +153,7 @@ func (msg *Message) ResendAs(list *List, commandAddress string) *Message {
 			}
 		}
 
-		send.Headers[key] = values
+		send.Headers[canonicKey] = values
 	}
 
 	return send

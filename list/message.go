@@ -22,12 +22,20 @@ type Message struct {
 	Cc              string
 	Bcc             string
 	Date            string
+	Sender          string
 	ID              string
 	InReplyTo       string
+	Precedence      string
+	ListID          string
+	ListUnsubscribe string
+	ListSubscribe   string
+	ListArchive     string
+	ListOwner       string
+	ListHelp        string
+	XMailingList    string
+	XLoop           string
 	MIMEVersion     string
 	ContentType     string
-	XList           string
-	ListUnsubscribe string
 	Headers         map[string][]string
 	Body            []byte
 }
@@ -47,24 +55,44 @@ func (msg *Message) FromReader(stream io.Reader) error {
 	header := textproto.MIMEHeader(inMessage.Header)
 	msg.Subject = header.Get("Subject")
 	msg.From = header.Get("From")
-	msg.ID = header.Get("Message-Id")
-	msg.InReplyTo = header.Get("In-Reply-To")
-	msg.Body = body
 	msg.To = header.Get("To")
 	msg.Cc = header.Get("Cc")
 	msg.Bcc = header.Get("Bcc")
 	msg.Date = header.Get("Date")
+	msg.Sender = header.Get("Sender")
+	msg.ID = header.Get("Message-Id")
+	msg.InReplyTo = header.Get("In-Reply-To")
+	msg.Precedence = header.Get("Precedence")
+	msg.ListID = header.Get("List-Id")
+	msg.ListUnsubscribe = header.Get("List-Unsubscribe")
+	msg.ListSubscribe = header.Get("List-Subscribe")
+	msg.ListOwner = header.Get("List-Owner")
+	msg.ListArchive = header.Get("List-Archive")
+	msg.ListHelp = header.Get("List-Help")
+	msg.XMailingList = header.Get("X-Mailing-List")
+	msg.XLoop = header.Get("X-Loop")
 	msg.MIMEVersion = header.Get("MIME-Version")
 	msg.ContentType = header.Get("Content-Type")
+	msg.Body = body
 
 	header.Del("Subject")
 	header.Del("From")
-	header.Del("Message-Id")
-	header.Del("In-Reply-To")
 	header.Del("To")
 	header.Del("Cc")
 	header.Del("Bcc")
 	header.Del("Date")
+	header.Del("Sender")
+	header.Del("Message-Id")
+	header.Del("In-Reply-To")
+	header.Del("Precedence")
+	header.Del("List-Id")
+	header.Del("List-Unsubscribe")
+	header.Del("List-Subscribe")
+	header.Del("List-Owner")
+	header.Del("List-Archive")
+	header.Del("List-Help")
+	header.Del("X-Mailing-List")
+	header.Del("X-Loop")
 	header.Del("MIME-Version")
 	header.Del("Content-Type")
 
@@ -91,23 +119,25 @@ func (msg *Message) Reply() *Message {
 func (msg *Message) ResendAs(list *List, commandAddress string) *Message {
 	send := &Message{}
 
-	// For DMARC - do not alter DKIM signatures (keep subject, from, body intact)
+	listID := fmt.Sprintf("%s <%s>", list.Name, list.ID)
+
 	send.Subject = msg.Subject
 	send.From = msg.From
-	send.Body = msg.Body
-
-	// Modify the headers below as needeed
 	send.To = msg.To
 	send.Cc = msg.Cc
 	send.Date = msg.Date
+	send.Sender = listID
 	send.ID = msg.ID
 	send.InReplyTo = msg.InReplyTo
-	send.XList = fmt.Sprintf("%s <%s>", list.Name, list.ID)
-	if !list.Locked {
-		send.ListUnsubscribe = fmt.Sprintf("<mailto:%s?subject=unsubscribe>", commandAddress)
-	}
+	send.Precedence = "bulk"
+	send.ListID = listID
+	send.ListUnsubscribe = fmt.Sprintf("<mailto:%s?subject=unsubscribe%%20%s>", commandAddress, list.ID)
+	send.ListSubscribe = fmt.Sprintf("<mailto:%s?subject=subscribe%%20%s>", commandAddress, list.ID)
+	send.XMailingList = listID
+	send.XLoop = listID
 	send.MIMEVersion = msg.MIMEVersion
 	send.ContentType = msg.ContentType
+	send.Body = msg.Body
 
 	// If the destination mailing list is in the Bcc field, keep it there
 	bccList, err := mail.ParseAddressList(msg.Bcc)
@@ -135,8 +165,6 @@ func (msg *Message) ResendAs(list *List, commandAddress string) *Message {
 			continue
 		case "Delivered-To":
 			continue
-		case "Sender":
-			continue
 		case "Return-Path":
 			continue
 		case "Arc-Authentication-Results":
@@ -146,6 +174,8 @@ func (msg *Message) ResendAs(list *List, commandAddress string) *Message {
 		case "Arc-Seal":
 			continue
 		case "X-Spamd-Result":
+			continue
+		case "X-Rspamd-Server":
 			continue
 		}
 
@@ -183,19 +213,41 @@ func (msg *Message) String() string {
 	if len(msg.Date) > 0 {
 		fmt.Fprintf(&buf, "Date: %s\r\n", msg.Date)
 	}
+	if len(msg.Sender) > 0 {
+		fmt.Fprintf(&buf, "Sender: %s\r\n", msg.Sender)
+	}
 	if len(msg.ID) > 0 {
 		fmt.Fprintf(&buf, "Message-Id: %s\r\n", msg.ID)
 	}
 	if len(msg.InReplyTo) > 0 {
 		fmt.Fprintf(&buf, "In-Reply-To: %s\r\n", msg.InReplyTo)
 	}
-	if len(msg.XList) > 0 {
-		fmt.Fprintf(&buf, "X-Mailing-List: %s\r\n", msg.XList)
-		fmt.Fprintf(&buf, "List-ID: %s\r\n", msg.XList)
-		fmt.Fprintf(&buf, "Sender: %s\r\n", msg.XList)
+	if len(msg.Precedence) > 0 {
+		fmt.Fprintf(&buf, "Precedence: %s\r\n", msg.Precedence)
+	}
+	if len(msg.ListID) > 0 {
+		fmt.Fprintf(&buf, "List-Id: %s\r\n", msg.ListID)
 	}
 	if len(msg.ListUnsubscribe) > 0 {
 		fmt.Fprintf(&buf, "List-Unsubscribe: %s\r\n", msg.ListUnsubscribe)
+	}
+	if len(msg.ListSubscribe) > 0 {
+		fmt.Fprintf(&buf, "List-Subscribe: %s\r\n", msg.ListSubscribe)
+	}
+	if len(msg.ListOwner) > 0 {
+		fmt.Fprintf(&buf, "List-Owner: %s\r\n", msg.ListOwner)
+	}
+	if len(msg.ListArchive) > 0 {
+		fmt.Fprintf(&buf, "List-Archive: %s\r\n", msg.ListArchive)
+	}
+	if len(msg.ListHelp) > 0 {
+		fmt.Fprintf(&buf, "List-Help: %s\r\n", msg.ListHelp)
+	}
+	if len(msg.XMailingList) > 0 {
+		fmt.Fprintf(&buf, "X-Mailing-List: %s\r\n", msg.XMailingList)
+	}
+	if len(msg.XLoop) > 0 {
+		fmt.Fprintf(&buf, "X-Loop: %s\r\n", msg.XLoop)
 	}
 
 	extraKeys := []string{}

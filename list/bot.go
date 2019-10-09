@@ -303,8 +303,11 @@ func (b *Bot) handleBounce(msg *Message, br *BounceResponse) error {
 	err = list.SetBounce(br.Address, bounces, time.Now())
 	if err != nil {
 		log.Printf("BOUNCE_SET_ERROR User=%q List=%q Error=%s\n", br.Address, br.List, err.Error())
+		return err
 	}
-	return err
+
+	log.Printf("BOUNCE_RECEIVED User=%q List=%q\n", br.Address, br.List)
+	return nil
 }
 
 func (b *Bot) commandInfo() []string {

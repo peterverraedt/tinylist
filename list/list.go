@@ -2,6 +2,7 @@ package list
 
 import (
 	"fmt"
+	"math"
 	"strings"
 	"time"
 )
@@ -70,6 +71,28 @@ func (list *List) Send(msg *Message, envelopeSender string, SMTPHostname string,
 		return err
 	}
 	for _, subscription := range subscriptions {
+		if subscription.Bounces > 0 {
+			var period time.Duration
+			// First bounce is for free, after second bounce, wait 1 day, after third bounce 2 days, then 4 days, 8 days...
+			if subscription.Bounces > 1 {
+				period = time.Duration(math.Pow(2, float64(subscription.Bounces-2))) * 24 * time.Hour
+			} else {
+				period = 0
+			}
+
+			dontSendUntil := subscription.LastBounce.Add(period)
+			now := time.Now()
+			if now.Before(dontSendUntil) {
+				continue
+			}
+
+			// Forget about bounces if long ago
+			clearBounces := dontSendUntil.Add(period).Add(24 * time.Hour)
+			if now.Before(clearBounces) {
+				list.SetBounce(subscription.Address, 0, now)
+			}
+		}
+
 		recipients = append(recipients, subscription.Address)
 	}
 	for _, bcc := range list.Bcc {

@@ -47,7 +47,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("ERROR_UPDATING Error=%q\n", err.Error())
 		}
-		list, _ := config.LookupList(*cli.CreateOptions.List)
+		list, _ := config.LookupList(*cli.ModifyOptions.List)
 		if list != nil {
 			fmt.Printf("%s\n", list)
 		}

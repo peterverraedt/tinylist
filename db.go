@@ -2,9 +2,9 @@ package main
 
 import (
 	"database/sql"
-	"time"
 	"fmt"
-	
+	"time"
+
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/peterverraedt/nanolist/list"
 )
@@ -112,7 +112,7 @@ func (c *Config) fetchList(rows *sql.Rows) (*list.List, error) {
 	}
 	l.Subscribe = func(a string) error { return c.subscribe(l.ID, a) }
 	l.Unsubscribe = func(a string) error { return c.unsubscribe(l.ID, a) }
-	l.SetBounce = func (a string, b uint16, t time.Time) error { return c.setBounce(l.ID, a, b, t) }
+	l.SetBounce = func(a string, b uint16, t time.Time) error { return c.setBounce(l.ID, a, b, t) }
 	l.Subscribers = func() ([]*list.Subscription, error) { return c.listSubscribers(l.ID) }
 	l.IsSubscribed = func(a string) (*list.Subscription, error) { return c.isSubscribed(l.ID, a) }
 	return l, nil
@@ -203,7 +203,7 @@ func (c *Config) unsubscribe(id string, user string) error {
 	if err != nil {
 		return err
 	}
-	n, err := r.RowsAffected() 
+	n, err := r.RowsAffected()
 	if err != nil {
 		return err
 	}
@@ -218,7 +218,7 @@ func (c *Config) setBounce(id string, user string, bounces uint16, lastBounce ti
 	if err != nil {
 		return err
 	}
-	n, err := r.RowsAffected() 
+	n, err := r.RowsAffected()
 	if err != nil {
 		return err
 	}
@@ -314,7 +314,7 @@ func (c *Config) Modify(o *CLIListOptions) error {
 				hidden = true
 			case "locked":
 				locked = true
-			case "subscribersOnly":
+			case "subscribers_only":
 				subscribersOnly = true
 			}
 		}

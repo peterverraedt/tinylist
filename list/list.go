@@ -71,29 +71,13 @@ func (list *List) Send(msg *Message, envelopeSender string, SMTPHostname string,
 		return err
 	}
 	for _, subscription := range subscriptions {
-		if subscription.Bounces > 0 {
-			var period time.Duration
-			// First bounce is for free, after second bounce, wait 1 day, after third bounce 2 days, then 4 days, 8 days...
-			if subscription.Bounces > 1 {
-				period = time.Duration(math.Pow(2, float64(subscription.Bounces-2))) * 24 * time.Hour
-			} else {
-				period = 0
-			}
-
-			dontSendUntil := subscription.LastBounce.Add(period)
-			now := time.Now()
-			if now.Before(dontSendUntil) {
-				continue
-			}
-
-			// Forget about bounces if long ago
-			clearBounces := dontSendUntil.Add(period).Add(24 * time.Hour)
-			if now.Before(clearBounces) {
-				list.SetBounce(subscription.Address, 0, now)
-			}
+		ok, err := list.CheckBounces(subscription)
+		if err != nil {
+			return err
 		}
-
-		recipients = append(recipients, subscription.Address)
+		if ok {
+			recipients = append(recipients, subscription.Address)
+		}
 	}
 	for _, bcc := range list.Bcc {
 		recipients = append(recipients, bcc)
@@ -112,7 +96,40 @@ func (list *List) String() string {
 	out := fmt.Sprintf("Name: %s <%s>\nDescription: %s\nHidden: %v | Locked: %v | Subscribers only: %v\nPosters: %v\nBcc: %v\nSubscribers:",
 		list.Name, list.ID, list.Description, list.Hidden, list.Locked, list.SubscribersOnly, list.Posters, list.Bcc)
 	for _, subscription := range subscribers {
-		out += fmt.Sprintf("\n  - %s (%d bounces, last on %s)", subscription.Address, subscription.Bounces, subscription.LastBounce)
+		ok, _ := list.CheckBounces(subscription)
+		if ok {
+			out += fmt.Sprintf("\n  - %s (%d bounces, last on %s)", subscription.Address, subscription.Bounces, subscription.LastBounce)
+		} else {
+			out += fmt.Sprintf("\n  - %s (disabled, %d bounces, last on %s)", subscription.Address, subscription.Bounces, subscription.LastBounce)
+		}
 	}
 	return out
+}
+
+// CheckBounces checks whether a user bounces too much. It returns true if the subscription should be considered active
+func (list *List) CheckBounces(subscription *Subscription) (bool, error) {
+	if subscription.Bounces > 0 {
+		var period time.Duration
+		// First bounce is for free, after second bounce, wait 1 day, after third bounce 2 days, then 4 days, 8 days...
+		if subscription.Bounces > 1 {
+			period = time.Duration(math.Pow(2, float64(subscription.Bounces-2))) * 24 * time.Hour
+		} else {
+			period = 0
+		}
+
+		dontSendUntil := subscription.LastBounce.Add(period)
+		now := time.Now()
+		if now.Before(dontSendUntil) {
+			return false, nil
+		}
+
+		// Forget about bounces if long ago
+		clearBounces := dontSendUntil.Add(period).Add(24 * time.Hour)
+		if now.Before(clearBounces) {
+			err := list.SetBounce(subscription.Address, 0, now)
+			return true, err
+		}
+	}
+
+	return true, nil
 }

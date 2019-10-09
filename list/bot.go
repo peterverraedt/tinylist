@@ -172,19 +172,34 @@ func (b *Bot) HandleMessage(msg *Message) error {
 		return err
 	}
 	if len(lists) > 0 {
+		obj, err := mail.ParseAddress(msg.From)
+		if err != nil {
+			return b.reply(msg, err.Error())
+		}
+
+		// Go through all lists - don't stop at the first error!
+		errors := []error{}
 		for _, list := range lists {
-			if list.CanPost(msg.From) {
+			if list.CanPost(obj.Address) {
 				listMsg := msg.ResendAs(list, b.CommandAddress)
 				err := list.Send(listMsg, b.BouncesAddress, b.SMTPHostname, b.SMTPPort, b.SMTPUsername, b.SMTPPassword, b.Debug)
 				if err != nil {
-					return b.reply(msg, err.Error())
+					errors = append(errors, err)
+				} else {
+					log.Printf("MESSAGE_SENT listID=%q Id=%q From=%q To=%q Cc=%q Bcc=%q Subject=%q\n",
+						list.ID, listMsg.ID, listMsg.From, listMsg.To, listMsg.Cc, listMsg.Bcc, listMsg.Subject)
 				}
-				log.Printf("MESSAGE_SENT listID=%q Id=%q From=%q To=%q Cc=%q Bcc=%q Subject=%q\n",
-					list.ID, listMsg.ID, listMsg.From, listMsg.To, listMsg.Cc, listMsg.Bcc, listMsg.Subject)
 			} else {
 				log.Printf("UNAUTHORISED_POST From=%q To=%q Cc=%q Bcc=%q", msg.From, msg.To, msg.Cc, msg.Bcc)
-				return b.reply(msg, fmt.Sprintf("You are not an approved poster for this mailing list. Your message has not been delivered to %s.", list.ID))
+				err := b.reply(msg, fmt.Sprintf("You are not an approved poster for this mailing list. Your message has not been delivered to %s.", list.ID))
+				if err != nil {
+					errors = append(errors, err)
+				}
 			}
+		}
+
+		if len(errors) > 0 {
+			return fmt.Errorf("%d errors occurred: %v", len(errors), errors)
 		}
 		return nil
 	}

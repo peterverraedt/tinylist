@@ -9,6 +9,7 @@ import (
 	"net/mail"
 	"net/smtp"
 	"net/textproto"
+	"sort"
 	"strings"
 	"time"
 )
@@ -138,6 +139,14 @@ func (msg *Message) ResendAs(list *List, commandAddress string) *Message {
 			continue
 		case "Return-Path":
 			continue
+		case "Arc-Authentication-Results":
+			continue
+		case "Arc-Message-Signature":
+			continue
+		case "Arc-Seal":
+			continue
+		case "X-Spamd-Result":
+			continue
 		}
 
 		// Keys with spaces are probably malformed
@@ -188,8 +197,14 @@ func (msg *Message) String() string {
 	if len(msg.ListUnsubscribe) > 0 {
 		fmt.Fprintf(&buf, "List-Unsubscribe: %s\r\n", msg.ListUnsubscribe)
 	}
-	for key, values := range msg.Headers {
-		for _, value := range values {
+
+	extraKeys := []string{}
+	for key := range msg.Headers {
+		extraKeys = append(extraKeys, key)
+	}
+	sort.Strings(extraKeys)
+	for _, key := range extraKeys {
+		for _, value := range msg.Headers[key] {
 			fmt.Fprintf(&buf, "%s: %s\r\n", key, value)
 		}
 	}

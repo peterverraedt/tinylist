@@ -100,6 +100,10 @@ func (msg *Message) ResendAs(list *List, commandAddress string) *Message {
 	if !list.Locked {
 		send.ListUnsubscribe = fmt.Sprintf("<mailto:%s?subject=unsubscribe>", commandAddress)
 	}
+	send.MIMEVersion = msg.MIMEVersion
+	send.ContentType = msg.ContentType
+	send.Headers = msg.Headers
+	send.Body = msg.Body
 
 	// If the destination mailing list is in the Bcc field, keep it there
 	bccList, err := mail.ParseAddressList(msg.Bcc)

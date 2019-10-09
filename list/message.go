@@ -8,8 +8,9 @@ import (
 	"log"
 	"net/mail"
 	"net/smtp"
-	"time"
+	"net/textproto"
 	"strings"
+	"time"
 )
 
 // Message represents an e-mail message
@@ -22,10 +23,12 @@ type Message struct {
 	Date            string
 	ID              string
 	InReplyTo       string
+	MIMEVersion     string
 	ContentType     string
 	XList           string
 	ListUnsubscribe string
-	Body            string
+	Headers         map[string][]string
+	Body            []byte
 }
 
 // FromReader reads a message from the given io.Reader
@@ -40,15 +43,31 @@ func (msg *Message) FromReader(stream io.Reader) error {
 		return err
 	}
 
-	msg.Subject = inMessage.Header.Get("Subject")
-	msg.From = inMessage.Header.Get("From")
-	msg.ID = inMessage.Header.Get("Message-ID")
-	msg.InReplyTo = inMessage.Header.Get("In-Reply-To")
-	msg.Body = string(body[:])
-	msg.To = inMessage.Header.Get("To")
-	msg.Cc = inMessage.Header.Get("Cc")
-	msg.Bcc = inMessage.Header.Get("Bcc")
-	msg.Date = inMessage.Header.Get("Date")
+	header := textproto.MIMEHeader(inMessage.Header)
+	msg.Subject = header.Get("Subject")
+	msg.From = header.Get("From")
+	msg.ID = header.Get("Message-ID")
+	msg.InReplyTo = header.Get("In-Reply-To")
+	msg.Body = body
+	msg.To = header.Get("To")
+	msg.Cc = header.Get("Cc")
+	msg.Bcc = header.Get("Bcc")
+	msg.Date = header.Get("Date")
+	msg.MIMEVersion = header.Get("MIME-Version")
+	msg.ContentType = header.Get("Content-Type")
+
+	header.Del("Subject")
+	header.Del("From")
+	header.Del("Message-ID")
+	header.Del("In-Reply-To")
+	header.Del("To")
+	header.Del("Cc")
+	header.Del("Bcc")
+	header.Del("Date")
+	header.Del("MIME-Version")
+	header.Del("Content-Type")
+
+	msg.Headers = map[string][]string(header)
 
 	return nil
 }
@@ -60,6 +79,10 @@ func (msg *Message) Reply() *Message {
 	reply.To = msg.From
 	reply.InReplyTo = msg.ID
 	reply.Date = time.Now().Format("Mon, 2 Jan 2006 15:04:05 -0700")
+	reply.MIMEVersion = "1.0"
+	reply.ContentType = "text/plain; charset=utf-8"
+	reply.Headers = map[string][]string{}
+	reply.Body = []byte{}
 	return reply
 }
 
@@ -97,15 +120,21 @@ func (msg *Message) String() string {
 
 	fmt.Fprintf(&buf, "From: %s\r\n", msg.From)
 	fmt.Fprintf(&buf, "To: %s\r\n", msg.To)
-	fmt.Fprintf(&buf, "Cc: %s\r\n", msg.Cc)
-	fmt.Fprintf(&buf, "Bcc: %s\r\n", msg.Bcc)
+	if len(msg.Cc) > 0 {
+		fmt.Fprintf(&buf, "Cc: %s\r\n", msg.Cc)
+	}
+	if len(msg.Bcc) > 0 {
+		fmt.Fprintf(&buf, "Bcc: %s\r\n", msg.Bcc)
+	}
 	if len(msg.Date) > 0 {
 		fmt.Fprintf(&buf, "Date: %s\r\n", msg.Date)
 	}
 	if len(msg.ID) > 0 {
 		fmt.Fprintf(&buf, "Messsage-ID: %s\r\n", msg.ID)
 	}
-	fmt.Fprintf(&buf, "In-Reply-To: %s\r\n", msg.InReplyTo)
+	if len(msg.InReplyTo) > 0 {
+		fmt.Fprintf(&buf, "In-Reply-To: %s\r\n", msg.InReplyTo)
+	}
 	if len(msg.XList) > 0 {
 		fmt.Fprintf(&buf, "X-Mailing-List: %s\r\n", msg.XList)
 		fmt.Fprintf(&buf, "List-ID: %s\r\n", msg.XList)
@@ -114,11 +143,21 @@ func (msg *Message) String() string {
 	if len(msg.ListUnsubscribe) > 0 {
 		fmt.Fprintf(&buf, "List-Unsubscribe: %s\r\n", msg.ListUnsubscribe)
 	}
+	for key, values := range msg.Headers {
+		for _, value := range values {
+			fmt.Fprintf(&buf, "%s: %s\r\n", key, value)
+		}
+	}
+	if len(msg.MIMEVersion) > 0 {
+		fmt.Fprintf(&buf, "MIME-Version: %s\r\n", msg.MIMEVersion)
+	}
 	if len(msg.ContentType) > 0 {
 		fmt.Fprintf(&buf, "Content-Type: %s\r\n", msg.ContentType)
 	}
 	fmt.Fprintf(&buf, "Subject: %s\r\n", msg.Subject)
-	fmt.Fprintf(&buf, "\r\n%s", msg.Body)
+	fmt.Fprintf(&buf, "\r\n")
+
+	buf.Write(msg.Body)
 
 	return buf.String()
 }
@@ -139,7 +178,7 @@ func (msg *Message) SendVERP(envelopeSender string, recipients []string, SMTPHos
 			errors = append(errors, err)
 		}
 	}
-	
+
 	return errors
 }
 

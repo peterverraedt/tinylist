@@ -2,8 +2,8 @@ package list
 
 import (
 	"fmt"
-	"time"
 	"strings"
+	"time"
 )
 
 // List represents a mailing list
@@ -25,8 +25,8 @@ type List struct {
 
 // Subscription describes a subscription with metadata
 type Subscription struct {
-	Address string
-	Bounces uint16
+	Address    string
+	Bounces    uint16
 	LastBounce time.Time
 }
 
@@ -62,7 +62,7 @@ func (list *List) Send(msg *Message, envelopeSender string, SMTPHostname string,
 		return fmt.Errorf("Invalid envelope sender %s", envelopeSender)
 	}
 	envelopeSender = fmt.Sprintf("%s+%s@%s", parts[0], strings.Replace(list.ID, "@", "=", 1), parts[1])
-	
+
 	// Collect recipients
 	recipients := []string{}
 	subscriptions, err := list.Subscribers()
@@ -87,7 +87,7 @@ func (list *List) Send(msg *Message, envelopeSender string, SMTPHostname string,
 func (list *List) String() string {
 	subscribers, _ := list.Subscribers()
 	out := fmt.Sprintf("Name: %s <%s>\nDescription: %s\nHidden: %v | Locked: %v | Subscribers only: %v\nPosters: %v\nBcc: %v\nSubscribers:",
-	  list.Name, list.ID, list.Description, list.Hidden, list.Locked, list.SubscribersOnly, list.Posters, list.Bcc)
+		list.Name, list.ID, list.Description, list.Hidden, list.Locked, list.SubscribersOnly, list.Posters, list.Bcc)
 	for _, subscription := range subscribers {
 		out += fmt.Sprintf("\n  - %s (%d bounces, last on %s)", subscription.Address, subscription.Bounces, subscription.LastBounce)
 	}

@@ -299,7 +299,7 @@ func (b *Bot) handleBounce(msg *Message, br *BounceResponse) error {
 	if bounces < 65535 {
 		bounces++
 	}
-	
+
 	err = list.SetBounce(br.Address, bounces, time.Now())
 	if err != nil {
 		log.Printf("BOUNCE_SET_ERROR User=%q List=%q Error=%s\n", br.Address, br.List, err.Error())
@@ -358,8 +358,8 @@ func (b *Bot) isToCommandAddress(msg *Message) bool {
 
 type BounceResponse struct {
 	BounceAddress string
-	List string
-	Address string
+	List          string
+	Address       string
 }
 
 func parseBounce(address string) *BounceResponse {
@@ -473,6 +473,6 @@ func (b *Bot) reply(msg *Message, message string) error {
 func (b *Bot) replyLines(msg *Message, body []string) error {
 	reply := msg.Reply()
 	reply.From = b.CommandAddress
-	reply.Body = fmt.Sprintf("%s\r\n", strings.Join(body, "\r\n"))
+	reply.Body = []byte(fmt.Sprintf("%s\r\n", strings.Join(body, "\r\n")))
 	return reply.Send(b.CommandAddress, []string{msg.From}, b.SMTPHostname, b.SMTPPort, b.SMTPUsername, b.SMTPPassword, b.Debug)
 }

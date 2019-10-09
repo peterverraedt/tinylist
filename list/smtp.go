@@ -1,9 +1,9 @@
 package list
 
 import (
-	"net/smtp"
-	"errors"
 	"crypto/tls"
+	"errors"
+	"net/smtp"
 )
 
 // SendMail with InsecureSkipVerify set to true

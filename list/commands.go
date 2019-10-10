@@ -256,7 +256,7 @@ func (c *Command) create(ctx *kingpin.ParseContext) error {
 			d.Hidden = true
 		case "locked":
 			d.Locked = true
-		case "subscribersOnly":
+		case "subscribers_only":
 			d.SubscribersOnly = true
 		}
 	}
@@ -336,7 +336,7 @@ func (c *Command) modify(ctx *kingpin.ParseContext) error {
 				d.Hidden = true
 			case "locked":
 				d.Locked = true
-			case "subscribersOnly":
+			case "subscribers_only":
 				d.SubscribersOnly = true
 			}
 		}

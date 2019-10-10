@@ -63,17 +63,17 @@ func NewCLI() *CLI {
 
 	c.CreateOptions = addCLIListOptions(c.Create)
 	c.ModifyOptions = addCLIListOptions(c.Modify)
-	c.DeleteList = c.Delete.Flag("list", "The list ID").Required().String()
+	c.DeleteList = c.Delete.Arg("list", "The list address").Required().String()
 
-	c.SubscribeOptions = addCLISubscriptionOptions(c.Subscribe)
-	c.UnsubscribeOptions = addCLISubscriptionOptions(c.Unsubscribe)
+	c.SubscribeOptions = addCLISubscriptionOptions(c.Subscribe, true)
+	c.UnsubscribeOptions = addCLISubscriptionOptions(c.Unsubscribe, false)
 
 	return c
 }
 
 func addCLIListOptions(cmd *kingpin.CmdClause) *CLIListOptions {
 	return &CLIListOptions{
-		List:        cmd.Flag("list", "The address of the mailing list, must be a valid address pointing to the nanolist pipe").Required().String(),
+		List:        cmd.Arg("list", "The address of the mailing list, must be a valid address pointing to the nanolist pipe").Required().String(),
 		Name:        cmd.Flag("name", "The name of the new mailing list, used as a title to refer to this mailing list").String(),
 		Description: cmd.Flag("description", "The description of the new mailing list").String(),
 		Flags:       cmd.Flag("flag", "Setting flags: locked, hidden, and/or subscribers_only").Short('f').Enums("locked", "hidden", "subscribers_only", ""),
@@ -82,11 +82,16 @@ func addCLIListOptions(cmd *kingpin.CmdClause) *CLIListOptions {
 	}
 }
 
-func addCLISubscriptionOptions(cmd *kingpin.CmdClause) *CLISubscriptionOptions {
-	return &CLISubscriptionOptions{
-		List:    cmd.Flag("list", "The list ID").Required().String(),
-		Address: cmd.Flag("address", "The address used in the subscription").Required().String(),
+func addCLISubscriptionOptions(cmd *kingpin.CmdClause, require bool) *CLISubscriptionOptions {
+	c := &CLISubscriptionOptions{
+		Address: cmd.Arg("address", "The address used in the subscription").Required().String(),
 	}
+	list := cmd.Arg("list", "The list address")
+	if require {
+		list = list.Required()
+	}
+	c.List = list.String()
+	return c
 }
 
 // Parse parses a CLI using the given arguments

@@ -53,8 +53,13 @@ func main() {
 		handleErr(err)
 
 	case "unsubscribe":
-		_, err := config.Bot.Unsubscribe(*cli.UnsubscribeOptions.Address, *cli.UnsubscribeOptions.List, true)
-		handleErr(err)
+		if *cli.UnsubscribeOptions.List == "" {
+			_, err := config.Bot.UnsubscribeAll(*cli.UnsubscribeOptions.Address, true)
+			handleErr(err)
+		} else {
+			_, err := config.Bot.Unsubscribe(*cli.UnsubscribeOptions.Address, *cli.UnsubscribeOptions.List, true)
+			handleErr(err)
+		}
 
 	case "message":
 		handleErr(config.openLog())

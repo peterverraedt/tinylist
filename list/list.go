@@ -7,8 +7,8 @@ import (
 	"time"
 )
 
-// List represents a mailing list
-type List struct {
+// A Definition defines a list definition
+type Definition struct {
 	Address         string   `ini:"address"`
 	Name            string   `ini:"name"`
 	Description     string   `ini:"description"`
@@ -17,11 +17,16 @@ type List struct {
 	SubscribersOnly bool     `ini:"subscribers_only"`
 	Posters         []string `ini:"posters,omitempty"`
 	Bcc             []string `ini:"bcc,omitempty"`
-	Subscribe       func(string) error
-	Unsubscribe     func(string) error
-	SetBounce       func(string, uint16, time.Time) error
-	Subscribers     func() ([]*Subscription, error)
-	IsSubscribed    func(string) (*Subscription, error)
+}
+
+// List represents a mailing list
+type List struct {
+	Definition
+	Subscribe    func(string) error
+	Unsubscribe  func(string) error
+	SetBounce    func(string, uint16, time.Time) error
+	Subscribers  func() ([]*Subscription, error)
+	IsSubscribed func(string) (*Subscription, error)
 }
 
 // Subscription describes a subscription with metadata

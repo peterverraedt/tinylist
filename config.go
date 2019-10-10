@@ -10,7 +10,7 @@ import (
 
 	"gopkg.in/ini.v1"
 
-	"github.com/peterverraedt/nanolist/list"
+	list "github.com/peterverraedt/nanolist/list"
 )
 
 // Config
@@ -60,6 +60,9 @@ func NewConfig(configFile string, debug bool) *Config {
 
 	c.Bot.Lists = c.Lists
 	c.Bot.LookupList = c.LookupList
+	c.Bot.CreateList = c.Create
+	c.Bot.ModifyList = c.Modify
+	c.Bot.DeleteList = c.Delete
 
 	return c
 }

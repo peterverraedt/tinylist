@@ -12,13 +12,17 @@ import (
 
 // A Bot represents a mailing list bot
 type Bot struct {
-	CommandAddress string `ini:"command_address"`
-	BouncesAddress string `ini:"bounces_address"`
-	SMTPHostname   string `ini:"smtp_hostname"`
-	SMTPPort       uint64 `ini:"smtp_port"`
-	SMTPUsername   string `ini:"smtp_username"`
-	SMTPPassword   string `ini:"smtp_password"`
+	CommandAddress string   `ini:"command_address"`
+	BouncesAddress string   `ini:"bounces_address"`
+	AdminAddresses []string `ini:"admin_addresses"`
+	SMTPHostname   string   `ini:"smtp_hostname"`
+	SMTPPort       uint64   `ini:"smtp_port"`
+	SMTPUsername   string   `ini:"smtp_username"`
+	SMTPPassword   string   `ini:"smtp_password"`
 	Lists          func() ([]*List, error)
+	CreateList     func(*Definition) error
+	ModifyList     func(*List, *Definition) error
+	DeleteList     func(*List) error
 	LookupList     func(string) (*List, error)
 	Debug          bool
 }
@@ -233,63 +237,14 @@ func (b *Bot) HandleMessage(msg *Message) error {
 	return b.reply(msg, "No mailing lists addressed. Your message has not been delivered.")
 }
 
-func (b *Bot) executeCommand(fromAddress string, command string) (string, error) {
-	parts := strings.Split(command, " ")
-	if len(parts) > 0 {
-		parts[0] = strings.ToLower(parts[0])
+// ExecuteCommand executes a command
+func (b *Bot) executeCommand(fromAddress string, subject string) (string, error) {
+	admin := b.isAdmin(fromAddress)
 
-		switch parts[0] {
-		case "lists":
-			lists, err := b.Lists()
-			if err != nil {
-				return "", fmt.Errorf("Retrieving lists failed with error: %s", err.Error())
-			}
-
-			var buf bytes.Buffer
-			fmt.Fprintf(&buf, "Available mailing lists:\n\n")
-			for _, list := range lists {
-				if !list.Hidden {
-					fmt.Fprintf(&buf, "%s <%s>: %s\n", list.Name, list.Address, list.Description)
-				}
-			}
-			fmt.Fprintf(&buf, "\nTo subscribe to a mailing list, email %s with 'subscribe <list-address>' as the subject.", b.CommandAddress)
-
-			return buf.String(), nil
-
-		case "help":
-			return b.commandInfo(), nil
-
-		case "subscribe":
-			if len(parts) > 1 {
-				list, err := b.Subscribe(fromAddress, parts[1], false)
-				if err != nil {
-					return "", err
-				}
-				return fmt.Sprintf("You are now subscribed to %s", list.Address), nil
-			}
-
-		case "unsubscribe":
-			if len(parts) > 1 {
-				list, err := b.Unsubscribe(fromAddress, parts[1], false)
-				if err != nil {
-					return "", err
-				}
-				return fmt.Sprintf("You are now unsubscribed from %s", list.Address), nil
-			} else if len(parts) == 1 {
-				lists, err := b.UnsubscribeAll(fromAddress, false)
-				if err != nil {
-					return "", err
-				}
-				listAddresses := []string{}
-				for _, list := range lists {
-					listAddresses = append(listAddresses, list.Address)
-				}
-				return fmt.Sprintf("You are now unsubscribed from %s", strings.Join(listAddresses, ", ")), nil
-			}
-		}
-	}
-
-	return fmt.Sprintf("%s is not a valid command.\n\n%s", command, b.commandInfo()), fmt.Errorf("Unknown command %s", command)
+	var buf bytes.Buffer
+	cmd := NewCommand(admin, fromAddress, b, &buf)
+	_, err := cmd.ParseString(subject)
+	return buf.String(), err
 }
 
 func (b *Bot) handleBounce(br *BounceResponse) error {

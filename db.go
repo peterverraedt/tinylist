@@ -229,46 +229,34 @@ func (c *Config) setBounce(id string, user string, bounces uint16, lastBounce ti
 }
 
 // Create a list
-func (c *Config) Create(o *CLIListOptions) error {
-	var hidden, locked, subscribersOnly bool
-	for _, flag := range *o.Flags {
-		switch flag {
-		case "hidden":
-			hidden = true
-		case "locked":
-			locked = true
-		case "subscribersOnly":
-			subscribersOnly = true
-		}
-	}
-
+func (c *Config) Create(d *list.Definition) error {
 	tx, _ := c.db.Begin()
 
 	_, err := tx.Exec("INSERT INTO lists (list, name, description, hidden, locked, subscribers_only) VALUES(?,?,?,?,?,?)",
-		*o.List, *o.Name, *o.Description, hidden, locked, subscribersOnly)
+		d.Address, d.Name, d.Description, d.Hidden, d.Locked, d.SubscribersOnly)
 	if err != nil {
 		tx.Rollback()
 		return err
 	}
 
-	for _, address := range *o.Posters {
+	for _, address := range d.Posters {
 		if address == "" {
 			continue
 		}
 
-		_, err = tx.Exec("INSERT INTO posters (list, address) VALUES(?,?)", o.List, address)
+		_, err = tx.Exec("INSERT INTO posters (list, address) VALUES(?,?)", d.Address, address)
 		if err != nil {
 			tx.Rollback()
 			return err
 		}
 	}
 
-	for _, address := range *o.Bcc {
+	for _, address := range d.Bcc {
 		if address == "" {
 			continue
 		}
 
-		_, err = tx.Exec("INSERT INTO bcc (list, address) VALUES(?,?)", o.List, address)
+		_, err = tx.Exec("INSERT INTO bcc (list, address) VALUES(?,?)", d.Address, address)
 		if err != nil {
 			tx.Rollback()
 			return err
@@ -280,89 +268,58 @@ func (c *Config) Create(o *CLIListOptions) error {
 }
 
 // Modify a list
-func (c *Config) Modify(o *CLIListOptions) error {
+func (c *Config) Modify(l *list.List, d *list.Definition) error {
 	tx, _ := c.db.Begin()
 
-	exists := false
-	err := c.db.QueryRow("SELECT 1 FROM lists WHERE list=?", *o.List).Scan(&exists)
+	r, err := tx.Exec("UPDATE lists SET list = ?, name = ?, description = ?, hidden = ?, locked = ?, subscribers_only = ? WHERE list = ?",
+		d.Address, d.Name, d.Description, d.Hidden, d.Locked, d.SubscribersOnly, l.Address)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+	n, err := r.RowsAffected()
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+	if n == 0 {
+		tx.Rollback()
+		return fmt.Errorf("List %s does not exist", l.Address)
+	}
 
+	if l.Address != d.Address {
+		_, err := tx.Exec("UPDATE subscriptions SET list = ? WHERE list = ?", d.Address, l.Address)
+		if err != nil {
+			tx.Rollback()
+			return err
+		}
+	}
+
+	_, err = tx.Exec("DELETE FROM posters WHERE list = ?", l.Address)
 	if err != nil {
 		tx.Rollback()
 		return err
 	}
 
-	if *o.Name != "" {
-		_, err = tx.Exec("UPDATE lists SET name = ? WHERE list = ?", *o.Name, *o.List)
-		if err != nil {
-			tx.Rollback()
-			return err
-		}
-	}
-	if *o.Description != "" {
-		_, err = tx.Exec("UPDATE lists SET description = ? WHERE list = ?", *o.Description, *o.List)
+	for _, address := range d.Posters {
+		_, err = tx.Exec("INSERT INTO posters (list, address) VALUES(?,?)", d.Address, address)
 		if err != nil {
 			tx.Rollback()
 			return err
 		}
 	}
 
-	if len(*o.Flags) > 0 {
-		var hidden, locked, subscribersOnly bool
-		for _, flag := range *o.Flags {
-			switch flag {
-			case "hidden":
-				hidden = true
-			case "locked":
-				locked = true
-			case "subscribers_only":
-				subscribersOnly = true
-			}
-		}
-
-		_, err = tx.Exec("UPDATE lists SET hidden = ?, locked = ?, subscribers_only = ? WHERE list = ?", hidden, locked, subscribersOnly, *o.List)
-		if err != nil {
-			tx.Rollback()
-			return err
-		}
+	_, err = tx.Exec("DELETE FROM bcc WHERE list = ?", l.Address)
+	if err != nil {
+		tx.Rollback()
+		return err
 	}
 
-	if len(*o.Posters) > 0 {
-		_, err = tx.Exec("DELETE FROM posters WHERE list = ?", *o.List)
+	for _, address := range d.Bcc {
+		_, err = tx.Exec("INSERT INTO bcc (list, address) VALUES(?,?)", d.Address, address)
 		if err != nil {
 			tx.Rollback()
 			return err
-		}
-
-		for _, address := range *o.Posters {
-			if address == "" {
-				continue
-			}
-
-			_, err = tx.Exec("INSERT INTO posters (list, address) VALUES(?,?)", *o.List, address)
-			if err != nil {
-				tx.Rollback()
-				return err
-			}
-		}
-	}
-
-	if len(*o.Bcc) > 0 {
-		_, err = tx.Exec("DELETE FROM bcc WHERE list = ?", *o.List)
-		if err != nil {
-			tx.Rollback()
-			return err
-		}
-
-		for _, address := range *o.Bcc {
-			if address == "" {
-				continue
-			}
-
-			_, err = tx.Exec("INSERT INTO bcc (list, address) VALUES(?,?)", *o.List, address)
-			if err != nil {
-				tx.Rollback()
-				return err
-			}
 		}
 	}
 
@@ -371,28 +328,28 @@ func (c *Config) Modify(o *CLIListOptions) error {
 }
 
 // Delete a list
-func (c *Config) Delete(id string) error {
+func (c *Config) Delete(l *list.List) error {
 	tx, _ := c.db.Begin()
 
-	_, err := tx.Exec("DELETE FROM subscriptions WHERE list = ?", id)
+	_, err := tx.Exec("DELETE FROM subscriptions WHERE list = ?", l.Address)
 	if err != nil {
 		tx.Rollback()
 		return err
 	}
 
-	_, err = tx.Exec("DELETE FROM bcc WHERE list = ?", id)
+	_, err = tx.Exec("DELETE FROM bcc WHERE list = ?", l.Address)
 	if err != nil {
 		tx.Rollback()
 		return err
 	}
 
-	_, err = tx.Exec("DELETE FROM posters WHERE list = ?", id)
+	_, err = tx.Exec("DELETE FROM posters WHERE list = ?", l.Address)
 	if err != nil {
 		tx.Rollback()
 		return err
 	}
 
-	_, err = tx.Exec("DELETE FROM lists WHERE list = ?", id)
+	_, err = tx.Exec("DELETE FROM lists WHERE list = ?", l.Address)
 	if err != nil {
 		tx.Rollback()
 		return err

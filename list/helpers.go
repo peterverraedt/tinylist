@@ -1,7 +1,6 @@
 package list
 
 import (
-	"bytes"
 	"fmt"
 	"net/mail"
 	"strings"
@@ -149,22 +148,13 @@ func (b *Bot) lookupLists(msg *Message) ([]*List, error) {
 	return lists, nil
 }
 
-func (b *Bot) commandInfo() string {
-	var buf bytes.Buffer
-	fmt.Fprintf(&buf, "Available commands:\n\n")
-	fmt.Fprintf(&buf, "    help\n")
-	fmt.Fprintf(&buf, "      Information about valid commands\n\n")
-	fmt.Fprintf(&buf, "    list\n")
-	fmt.Fprintf(&buf, "      Retrieve a list of available mailing lists\n\n")
-	fmt.Fprintf(&buf, "    subscribe <list-address>\n")
-	fmt.Fprintf(&buf, "      Subscribe to <list-address>\n\n")
-	fmt.Fprintf(&buf, "    unsubscribe <list-address>\n")
-	fmt.Fprintf(&buf, "      Unsubscribe to <list-address>\n\n")
-	fmt.Fprintf(&buf, "    unsubscribe\n")
-	fmt.Fprintf(&buf, "      Unsubscribe to all lists\n\n")
-	fmt.Fprintf(&buf, "To send a command, email %s with the command as the subject.", b.CommandAddress)
-
-	return buf.String()
+func (b *Bot) isAdmin(address string) bool {
+	for _, a := range b.AdminAddresses {
+		if a == address {
+			return true
+		}
+	}
+	return false
 }
 
 func (b *Bot) reply(msg *Message, message string) error {

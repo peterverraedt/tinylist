@@ -236,6 +236,14 @@ func (c *Command) list(ctx *kingpin.ParseContext) error {
 func (c *Command) create(ctx *kingpin.ParseContext) error {
 	bot := c.botFactory(ctx)
 
+	list, err := bot.LookupList(*c.createOptions.List)
+	if err != nil {
+		return err
+	}
+	if list != nil {
+		return fmt.Errorf("List %s already exists", list.Address)
+	}
+
 	d := Definition{
 		Address:     *c.createOptions.List,
 		Name:        *c.createOptions.Name,
@@ -266,7 +274,7 @@ func (c *Command) create(ctx *kingpin.ParseContext) error {
 		}
 	}
 
-	err := bot.CreateList(d)
+	err = bot.CreateList(d)
 	if err != nil {
 		return err
 	}
@@ -281,6 +289,9 @@ func (c *Command) modify(ctx *kingpin.ParseContext) error {
 	list, err := bot.LookupList(*c.modifyOptions.List)
 	if err != nil {
 		return err
+	}
+	if list == nil {
+		return fmt.Errorf("List %s does not exist", *c.modifyOptions.List)
 	}
 
 	d := Definition{
@@ -350,6 +361,9 @@ func (c *Command) delete(ctx *kingpin.ParseContext) error {
 	list, err := bot.LookupList(*c.deleteList)
 	if err != nil {
 		return err
+	}
+	if list == nil {
+		return fmt.Errorf("List %s does not exist", *c.deleteList)
 	}
 
 	err = bot.DeleteList(list)

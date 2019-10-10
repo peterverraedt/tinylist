@@ -47,7 +47,7 @@ type commandSubscriptionOptions struct {
 
 // NewCommand returns a Command application object
 func NewCommand(admin bool, userAddress string, b *bot, w io.Writer) *Command {
-	app := kingpin.New("nanolist", "Nano list server")
+	app := kingpin.New("tinylist", "Tiny list server")
 
 	c := AddCommand(app, admin, userAddress, func(*kingpin.ParseContext) *bot {
 		return b
@@ -98,7 +98,7 @@ func AddCommand(app *kingpin.Application, admin bool, userAddress string, botFac
 
 func addCommandListOptions(cmd *kingpin.CmdClause) *commandListOptions {
 	return &commandListOptions{
-		List:        cmd.Arg("list", "The address of the mailing list, must be a valid address pointing to the nanolist pipe").Required().String(),
+		List:        cmd.Arg("list", "The address of the mailing list, must be a valid address pointing to the tinylist pipe").Required().String(),
 		Name:        cmd.Flag("name", "The name of the new mailing list, used as a title to refer to this mailing list").String(),
 		Description: cmd.Flag("description", "The description of the new mailing list").String(),
 		Flags:       cmd.Flag("flag", "Setting flags: locked, hidden, and/or subscribers_only").Short('f').Enums("locked", "hidden", "subscribers_only", ""),

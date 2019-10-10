@@ -11,7 +11,7 @@ import (
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
-	"github.com/peterverraedt/nanolist/list"
+	"github.com/peterverraedt/tinylist/list"
 	"gopkg.in/alecthomas/kingpin.v2"
 	"gopkg.in/ini.v1"
 )
@@ -39,7 +39,7 @@ func (b *SQLBackend) LoadConfig(configFile string, debug bool) error {
 	if len(configFile) > 0 {
 		cfg, err = ini.Load(configFile)
 	} else {
-		cfg, err = ini.LooseLoad("nanolist.ini", "/usr/local/etc/nanolist.ini", "/etc/nanolist.ini")
+		cfg, err = ini.LooseLoad("tinylist.ini", "/usr/local/etc/tinylist.ini", "/etc/tinylist.ini")
 	}
 
 	if err != nil {

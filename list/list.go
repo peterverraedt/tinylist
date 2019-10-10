@@ -19,16 +19,6 @@ type Definition struct {
 	Bcc             []string `ini:"bcc,omitempty"`
 }
 
-// List represents a mailing list
-type List struct {
-	Definition
-	Subscribe    func(string) error
-	Unsubscribe  func(string) error
-	SetBounce    func(string, uint16, time.Time) error
-	Subscribers  func() ([]*Subscription, error)
-	IsSubscribed func(string) (*Subscription, error)
-}
-
 // Subscription describes a subscription with metadata
 type Subscription struct {
 	Address    string
@@ -36,8 +26,18 @@ type Subscription struct {
 	LastBounce time.Time
 }
 
+// List represents a mailing list
+type list struct {
+	Definition
+	Subscribe    func(string) error
+	Unsubscribe  func(string) error
+	SetBounce    func(string, uint16, time.Time) error
+	Subscribers  func() ([]Subscription, error)
+	IsSubscribed func(string) (*Subscription, error)
+}
+
 // CanPost checks if the user is authorised to post to this mailing list
-func (list *List) CanPost(from string) bool {
+func (list *list) CanPost(from string) bool {
 
 	// Is this list restricted to subscribers only?
 	if list.SubscribersOnly {
@@ -61,7 +61,7 @@ func (list *List) CanPost(from string) bool {
 }
 
 // Send a message to the mailing list
-func (list *List) Send(msg *Message, envelopeSender string, SMTPHostname string, SMTPPort uint64, SMTPUsername string, SMTPPassword string, debug bool) error {
+func (list *list) Send(msg *Message, envelopeSender string, SMTPHostname string, SMTPPort uint64, SMTPUsername string, SMTPPassword string, debug bool) error {
 	// Append list id to envelope sender
 	parts := strings.SplitN(envelopeSender, "@", 2)
 	if len(parts) < 2 {
@@ -92,7 +92,7 @@ func (list *List) Send(msg *Message, envelopeSender string, SMTPHostname string,
 	return msg.SendVERP(envelopeSender, recipients, SMTPHostname, SMTPPort, SMTPUsername, SMTPPassword, debug)
 }
 
-func (list *List) String() string {
+func (list *list) String() string {
 	subscribers, _ := list.Subscribers()
 	out := fmt.Sprintf("Name: %s <%s>\nDescription: %s\nHidden: %v | Locked: %v | Subscribers only: %v\nPosters: %v\nBcc: %v\nSubscribers:",
 		list.Name, list.Address, list.Description, list.Hidden, list.Locked, list.SubscribersOnly, list.Posters, list.Bcc)
@@ -108,7 +108,7 @@ func (list *List) String() string {
 }
 
 // CheckBounces checks whether a user bounces too much. It returns true if the subscription should be considered active
-func (list *List) CheckBounces(subscription *Subscription) (bool, error) {
+func (list *list) CheckBounces(subscription Subscription) (bool, error) {
 	if subscription.Bounces > 0 {
 		var period time.Duration
 		// First bounce is for free, after second bounce, wait 1 day, after third bounce 2 days, then 4 days, 8 days...

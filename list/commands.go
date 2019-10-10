@@ -14,7 +14,7 @@ import (
 type Command struct {
 	app                *kingpin.Application
 	admin              bool
-	botFactory         BotFactory
+	botFactory         botFactory
 	listCmd            *kingpin.CmdClause
 	listAll            *bool
 	createCmd          *kingpin.CmdClause
@@ -46,11 +46,11 @@ type commandSubscriptionOptions struct {
 }
 
 // NewCommand returns a Command application object
-func NewCommand(admin bool, userAddress string, bot *Bot, w io.Writer) *Command {
+func NewCommand(admin bool, userAddress string, b *bot, w io.Writer) *Command {
 	app := kingpin.New("nanolist", "Nano list server")
 
-	c := AddCommand(app, admin, userAddress, func(*kingpin.ParseContext) (*Bot, error) {
-		return bot, nil
+	c := AddCommand(app, admin, userAddress, func(*kingpin.ParseContext) *bot {
+		return b
 	})
 
 	if w != nil {
@@ -64,15 +64,13 @@ func NewCommand(admin bool, userAddress string, bot *Bot, w io.Writer) *Command 
 	return c
 }
 
-// A BotFactory creates a Bot based on the parsed context - before applying other actions
-type BotFactory func(*kingpin.ParseContext) (*Bot, error)
-
 // AddCommand adds bot commands to a given kingpin application
-func AddCommand(app *kingpin.Application, admin bool, userAddress string, botFactory BotFactory) *Command {
+func AddCommand(app *kingpin.Application, admin bool, userAddress string, botFactory botFactory) *Command {
 	c := &Command{
-		app:   app,
-		admin: admin,
-		w:     os.Stdout,
+		app:        app,
+		admin:      admin,
+		w:          os.Stdout,
+		botFactory: botFactory,
 	}
 
 	app.PreAction(c.parseAddresses)
@@ -211,10 +209,7 @@ func (c *Command) ParseString(paramsString string) (string, error) {
 }
 
 func (c *Command) list(ctx *kingpin.ParseContext) error {
-	bot, err := c.botFactory(ctx)
-	if err != nil {
-		return err
-	}
+	bot := c.botFactory(ctx)
 
 	lists, err := bot.Lists()
 	if err != nil {
@@ -233,12 +228,9 @@ func (c *Command) list(ctx *kingpin.ParseContext) error {
 }
 
 func (c *Command) create(ctx *kingpin.ParseContext) error {
-	bot, err := c.botFactory(ctx)
-	if err != nil {
-		return err
-	}
+	bot := c.botFactory(ctx)
 
-	d := &Definition{
+	d := Definition{
 		Address:     *c.createOptions.List,
 		Name:        *c.createOptions.Name,
 		Description: *c.createOptions.Description,
@@ -272,17 +264,14 @@ func (c *Command) create(ctx *kingpin.ParseContext) error {
 }
 
 func (c *Command) modify(ctx *kingpin.ParseContext) error {
-	bot, err := c.botFactory(ctx)
-	if err != nil {
-		return err
-	}
+	bot := c.botFactory(ctx)
 
 	list, err := bot.LookupList(*c.modifyOptions.List)
 	if err != nil {
 		return err
 	}
 
-	d := &Definition{
+	d := Definition{
 		Address: *c.modifyOptions.List,
 	}
 
@@ -338,10 +327,7 @@ func (c *Command) modify(ctx *kingpin.ParseContext) error {
 }
 
 func (c *Command) delete(ctx *kingpin.ParseContext) error {
-	bot, err := c.botFactory(ctx)
-	if err != nil {
-		return err
-	}
+	bot := c.botFactory(ctx)
 
 	list, err := bot.LookupList(*c.deleteList)
 	if err != nil {
@@ -352,10 +338,7 @@ func (c *Command) delete(ctx *kingpin.ParseContext) error {
 }
 
 func (c *Command) subscribe(ctx *kingpin.ParseContext) error {
-	bot, err := c.botFactory(ctx)
-	if err != nil {
-		return err
-	}
+	bot := c.botFactory(ctx)
 
 	list, err := bot.Subscribe(*c.subscribeOptions.Address, *c.subscribeOptions.List, c.admin)
 	if err != nil {
@@ -366,10 +349,7 @@ func (c *Command) subscribe(ctx *kingpin.ParseContext) error {
 }
 
 func (c *Command) unsubscribe(ctx *kingpin.ParseContext) error {
-	bot, err := c.botFactory(ctx)
-	if err != nil {
-		return err
-	}
+	bot := c.botFactory(ctx)
 
 	if *c.unsubscribeOptions.List == "" {
 		lists, err := bot.UnsubscribeAll(*c.unsubscribeOptions.Address, c.admin)

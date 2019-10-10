@@ -10,8 +10,8 @@ import (
 	"time"
 )
 
-// A Bot represents a mailing list bot
-type Bot struct {
+// A Config represents general configuration for a mailing list bot
+type Config struct {
 	CommandAddress string   `ini:"command_address"`
 	BouncesAddress string   `ini:"bounces_address"`
 	AdminAddresses []string `ini:"admin_addresses"`
@@ -19,16 +19,21 @@ type Bot struct {
 	SMTPPort       uint64   `ini:"smtp_port"`
 	SMTPUsername   string   `ini:"smtp_username"`
 	SMTPPassword   string   `ini:"smtp_password"`
-	Lists          func() ([]*List, error)
-	CreateList     func(*Definition) error
-	ModifyList     func(*List, *Definition) error
-	DeleteList     func(*List) error
-	LookupList     func(string) (*List, error)
-	Debug          bool
+	Debug          bool     `ini:"debug"`
+}
+
+// A bot represents a mailing list bot
+type bot struct {
+	Config
+	Lists      func() ([]*list, error)
+	CreateList func(Definition) error
+	ModifyList func(*list, Definition) error
+	DeleteList func(*list) error
+	LookupList func(string) (*list, error)
 }
 
 // Subscribe a given address to a listAddress
-func (b *Bot) Subscribe(address string, listAddress string, admin bool) (*List, error) {
+func (b *bot) Subscribe(address string, listAddress string, admin bool) (*list, error) {
 	list, err := b.LookupList(listAddress)
 	if err != nil {
 		return nil, err
@@ -63,7 +68,7 @@ func (b *Bot) Subscribe(address string, listAddress string, admin bool) (*List, 
 }
 
 // Unsubscribe a given address from a listAddress
-func (b *Bot) Unsubscribe(address string, listAddress string, admin bool) (*List, error) {
+func (b *bot) Unsubscribe(address string, listAddress string, admin bool) (*list, error) {
 	list, err := b.LookupList(listAddress)
 	if err != nil {
 		return nil, err
@@ -102,13 +107,13 @@ func (b *Bot) Unsubscribe(address string, listAddress string, admin bool) (*List
 }
 
 // UnsubscribeAll unsubscribes a given address from all lists
-func (b *Bot) UnsubscribeAll(address string, admin bool) ([]*List, error) {
+func (b *bot) UnsubscribeAll(address string, admin bool) ([]*list, error) {
 	lists, err := b.Lists()
 	if err != nil {
 		return nil, err
 	}
 
-	unsubscribed := []*List{}
+	unsubscribed := []*list{}
 
 	for _, list := range lists {
 		subscription, err := list.IsSubscribed(address)
@@ -143,7 +148,7 @@ func (b *Bot) UnsubscribeAll(address string, admin bool) ([]*List, error) {
 
 // Handle a message from a io.Reader
 // Only returns error if no error message could be sent to the user
-func (b *Bot) Handle(stream io.Reader) error {
+func (b *bot) Handle(stream io.Reader) error {
 	msg := &Message{}
 	err := msg.FromReader(stream)
 	if err != nil {
@@ -155,7 +160,7 @@ func (b *Bot) Handle(stream io.Reader) error {
 }
 
 // HandleMessage handles a message
-func (b *Bot) HandleMessage(msg *Message) error {
+func (b *bot) HandleMessage(msg *Message) error {
 	if b.isToCommandAddress(msg) {
 		obj, err := mail.ParseAddress(msg.From)
 		if err != nil {
@@ -238,7 +243,7 @@ func (b *Bot) HandleMessage(msg *Message) error {
 }
 
 // ExecuteCommand executes a command
-func (b *Bot) executeCommand(fromAddress string, subject string) (string, error) {
+func (b *bot) executeCommand(fromAddress string, subject string) (string, error) {
 	admin := b.isAdmin(fromAddress)
 
 	var buf bytes.Buffer
@@ -247,7 +252,7 @@ func (b *Bot) executeCommand(fromAddress string, subject string) (string, error)
 	return buf.String(), err
 }
 
-func (b *Bot) handleBounce(br *BounceResponse) error {
+func (b *bot) handleBounce(br *BounceResponse) error {
 	list, err := b.LookupList(br.List)
 	if err != nil {
 		return err

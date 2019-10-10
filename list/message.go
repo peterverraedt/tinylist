@@ -116,7 +116,7 @@ func (msg *Message) Reply() *Message {
 }
 
 // ResendAs a list prepares a copy of the message to be used for a list forward
-func (msg *Message) ResendAs(list *List, commandAddress string) *Message {
+func (msg *Message) ResendAs(list *list, commandAddress string) *Message {
 	send := &Message{}
 
 	listID := fmt.Sprintf("%s <%s>", list.Name, list.Address)

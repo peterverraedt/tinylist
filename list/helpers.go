@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-func (b *Bot) isToCommandAddress(msg *Message) bool {
+func (b *bot) isToCommandAddress(msg *Message) bool {
 	toList, err := mail.ParseAddressList(msg.To)
 	if err == nil {
 		for _, to := range toList {
@@ -68,7 +68,7 @@ func parseBounce(address string) *BounceResponse {
 	return br
 }
 
-func (b *Bot) isToBounceAddress(msg *Message) *BounceResponse {
+func (b *bot) isToBounceAddress(msg *Message) *BounceResponse {
 	toList, err := mail.ParseAddressList(msg.To)
 	if err == nil {
 		for _, to := range toList {
@@ -103,8 +103,8 @@ func (b *Bot) isToBounceAddress(msg *Message) *BounceResponse {
 }
 
 // Retrieve a list of mailing lists that are recipients of the given message
-func (b *Bot) lookupLists(msg *Message) ([]*List, error) {
-	lists := []*List{}
+func (b *bot) lookupLists(msg *Message) ([]*list, error) {
+	lists := []*list{}
 
 	toList, err := mail.ParseAddressList(msg.To)
 	if err == nil {
@@ -148,7 +148,7 @@ func (b *Bot) lookupLists(msg *Message) ([]*List, error) {
 	return lists, nil
 }
 
-func (b *Bot) isAdmin(address string) bool {
+func (b *bot) isAdmin(address string) bool {
 	for _, a := range b.AdminAddresses {
 		if a == address {
 			return true
@@ -157,7 +157,7 @@ func (b *Bot) isAdmin(address string) bool {
 	return false
 }
 
-func (b *Bot) reply(msg *Message, message string) error {
+func (b *bot) reply(msg *Message, message string) error {
 	message = strings.Replace(message, "\n", "\r\n", -1)
 	message = fmt.Sprintf("%s\r\n", message)
 

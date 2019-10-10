@@ -1,40 +1,36 @@
 package main
 
 import (
+	"gopkg.in/alecthomas/kingpin.v2"
 	"log"
 	"os"
+
+	"github.com/peterverraedt/nanolist/list"
 )
 
 func main() {
-	cli := NewCLI()
-	_, err := cli.Parse(os.Args[1:])
+	err := run(os.Args[1:])
 	if err != nil {
 		log.Fatal(err)
 	}
+}
 
-	/*
-		case "list":
-			lists, err := config.Bot.Lists()
-			handleErr(err)
+func run(params []string) error {
+	backend := NewSQLBackend()
 
-			for _, list := range lists {
-				fmt.Printf("%s\n", list)
-			}
+	app := kingpin.New("nanolist", "Nano list server")
+	app.HelpFlag.Short('h')
+	debug := app.Flag("debug", "Don't send emails - print them to stdout instead").Bool()
+	configFile := app.Flag("config", "Load configuration from specified file").Default("").String()
 
-		case "create":
-			handleErr(config.Create(cli.CreateOptions))
-			list, _ := config.LookupList(*cli.CreateOptions.List)
-			if list != nil {
-				fmt.Printf("%s\n", list)
-			}
+	app.Command("check", "Check the configuration").Action(backend.check)
+	app.Command("message", "Process a message from stdin").Action(backend.message)
+	list.AddCommand(app, true, "", list.NewBotFactory(backend))
 
-		case "modify":
-			handleErr(config.Modify(cli.ModifyOptions))
-			list, _ := config.LookupList(*cli.ModifyOptions.List)
-			if list != nil {
-				fmt.Printf("%s\n", list)
-			}
+	app.Action(func(*kingpin.ParseContext) error {
+		return backend.LoadConfig(*configFile, *debug)
+	})
 
-		case "delete":
-			handleErr(config.Delete(*cli.DeleteList))*/
+	_, err := app.Parse(params)
+	return err
 }

@@ -19,6 +19,11 @@ type Definition struct {
 	Bcc             []string `ini:"bcc,omitempty"`
 }
 
+func (def Definition) String() string {
+	return fmt.Sprintf("%s <%s>: %s\nHidden: %v | Locked: %v | Subscribers only: %v\nPosters: %s\nBcc: %s",
+	    def.Name, def.Address, def.Description, def.Hidden, def.Locked, def.SubscribersOnly, strings.Join(def.Posters, ", "), strings.Join(def.Bcc, ", "))
+}
+
 // Subscription describes a subscription with metadata
 type Subscription struct {
 	Address    string
@@ -93,9 +98,8 @@ func (list *list) Send(msg *Message, envelopeSender string, SMTPHostname string,
 }
 
 func (list *list) String() string {
+	out := list.Definition.String() + "\nSubscribers:"
 	subscribers, _ := list.Subscribers()
-	out := fmt.Sprintf("Name: %s <%s>\nDescription: %s\nHidden: %v | Locked: %v | Subscribers only: %v\nPosters: %v\nBcc: %v\nSubscribers:",
-		list.Name, list.Address, list.Description, list.Hidden, list.Locked, list.SubscribersOnly, list.Posters, list.Bcc)
 	for _, subscription := range subscribers {
 		ok, _ := list.CheckBounces(subscription)
 		if ok {

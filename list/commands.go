@@ -110,8 +110,8 @@ func addCommandListOptions(cmd *kingpin.CmdClause) *commandListOptions {
 func addCommandSubscriptionOptions(cmd *kingpin.CmdClause, userAddress string, admin bool, newSubscription bool) *commandSubscriptionOptions {
 	c := &commandSubscriptionOptions{}
 
-	if userAddress == "" && !admin {
-		c.Address = cmd.Arg("address", "The address used in the subscription").String()
+	if userAddress == "" && admin {
+		c.Address = cmd.Arg("address", "The address used in the subscription").Required().String()
 	}
 
 	list := cmd.Arg("list", "The list address")
@@ -120,10 +120,12 @@ func addCommandSubscriptionOptions(cmd *kingpin.CmdClause, userAddress string, a
 	}
 	c.List = list.String()
 
-	if userAddress != "" && !admin {
-		c.Address = cmd.Flag("address", "The address used in the subscription").Default(userAddress).Required().Enum(userAddress)
-	} else {
-		c.Address = cmd.Flag("address", "Override the address used in the subscription").Default(userAddress).Required().String()
+	if userAddress != "" {
+		if admin {
+			c.Address = cmd.Flag("address", "The address used in the subscription").Default(userAddress).Enum(userAddress)
+		} else {
+			c.Address = cmd.Flag("address", "Override the address used in the subscription").Default(userAddress).String()
+		}
 	}
 	return c
 }
@@ -219,7 +221,11 @@ func (c *Command) list(ctx *kingpin.ParseContext) error {
 	fmt.Fprintf(c.w, "Available mailing lists:\n\n")
 	for _, list := range lists {
 		if !list.Hidden || *c.listAll {
-			fmt.Fprintf(c.w, "%s <%s>: %s\n", list.Name, list.Address, list.Description)
+			if c.admin {
+				fmt.Fprintf(c.w, "%s\n\n", list.String())
+			} else {
+				fmt.Fprintf(c.w, "%s <%s>: %s\n", list.Name, list.Address, list.Description)
+			}
 		}
 	}
 	fmt.Fprintf(c.w, "\nTo subscribe to a mailing list, email %s with 'subscribe <list-address>' as the subject.\n", bot.CommandAddress)
@@ -260,7 +266,13 @@ func (c *Command) create(ctx *kingpin.ParseContext) error {
 		}
 	}
 
-	return bot.CreateList(d)
+	err := bot.CreateList(d)
+	if err != nil {
+		return err
+	}
+
+	fmt.Fprintf(c.w, "List %s has successfully been created.\n\n%s\n", d.Address, d.String())
+	return nil
 }
 
 func (c *Command) modify(ctx *kingpin.ParseContext) error {
@@ -323,7 +335,13 @@ func (c *Command) modify(ctx *kingpin.ParseContext) error {
 		d.SubscribersOnly = list.SubscribersOnly
 	}
 
-	return bot.ModifyList(list, d)
+	err = bot.ModifyList(list, d)
+	if err != nil {
+		return err
+	}
+
+	fmt.Fprintf(c.w, "List %s has successfully been updated.\n\n%s\n", list.Address, d.String())
+	return nil
 }
 
 func (c *Command) delete(ctx *kingpin.ParseContext) error {
@@ -334,7 +352,13 @@ func (c *Command) delete(ctx *kingpin.ParseContext) error {
 		return err
 	}
 
-	return bot.DeleteList(list)
+	err = bot.DeleteList(list)
+	if err != nil {
+		return err
+	}
+
+	fmt.Fprintf(c.w, "List %s has successfully been deleted.\n", list.Address)
+	return nil
 }
 
 func (c *Command) subscribe(ctx *kingpin.ParseContext) error {
@@ -344,7 +368,7 @@ func (c *Command) subscribe(ctx *kingpin.ParseContext) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(c.w, "You are now subscribed to %s\n", list.Address)
+	fmt.Fprintf(c.w, "You are now subscribed to %s.\n", list.Address)
 	return nil
 }
 
@@ -357,7 +381,7 @@ func (c *Command) unsubscribe(ctx *kingpin.ParseContext) error {
 			return err
 		}
 		for _, list := range lists {
-			fmt.Fprintf(c.w, "You are now unsubscribed from %s\n", list.Address)
+			fmt.Fprintf(c.w, "You are now unsubscribed from %s.\n", list.Address)
 		}
 		return nil
 	}
@@ -365,6 +389,6 @@ func (c *Command) unsubscribe(ctx *kingpin.ParseContext) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(c.w, "You are now unsubscribed from %s\n", list.Address)
+	fmt.Fprintf(c.w, "You are now unsubscribed from %s.\n", list.Address)
 	return nil
 }

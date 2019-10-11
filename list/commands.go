@@ -122,9 +122,9 @@ func addCommandSubscriptionOptions(cmd *kingpin.CmdClause, userAddress string, a
 
 	if userAddress != "" {
 		if admin {
-			c.Address = cmd.Flag("address", "The address used in the subscription").Default(userAddress).Enum(userAddress)
-		} else {
 			c.Address = cmd.Flag("address", "Override the address used in the subscription").Default(userAddress).String()
+		} else {
+			c.Address = cmd.Flag("address", "The address used in the subscription").Default(userAddress).Enum(userAddress)
 		}
 	}
 	return c

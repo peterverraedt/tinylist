@@ -21,7 +21,7 @@ type Definition struct {
 
 func (def Definition) String() string {
 	return fmt.Sprintf("%s <%s>: %s\nHidden: %v | Locked: %v | Subscribers only: %v\nPosters: %s\nBcc: %s",
-	    def.Name, def.Address, def.Description, def.Hidden, def.Locked, def.SubscribersOnly, strings.Join(def.Posters, ", "), strings.Join(def.Bcc, ", "))
+		def.Name, def.Address, def.Description, def.Hidden, def.Locked, def.SubscribersOnly, strings.Join(def.Posters, ", "), strings.Join(def.Bcc, ", "))
 }
 
 // Subscription describes a subscription with metadata
@@ -43,26 +43,30 @@ type list struct {
 
 // CanPost checks if the user is authorised to post to this mailing list
 func (list *list) CanPost(from string) bool {
-
-	// Is this list restricted to subscribers only?
-	if list.SubscribersOnly {
-		subscription, err := list.IsSubscribed(from)
-		if err != nil || subscription == nil {
-			return false
-		}
-	}
+	policy := true
 
 	// Is there a whitelist of approved posters?
 	if len(list.Posters) > 0 {
+		policy = false
+
 		for _, poster := range list.Posters {
 			if from == poster {
 				return true
 			}
 		}
-		return false
 	}
 
-	return true
+	// Is this list restricted to subscribers only?
+	if list.SubscribersOnly {
+		policy = false
+
+		subscription, err := list.IsSubscribed(from)
+		if err == nil && subscription != nil {
+			return true
+		}
+	}
+
+	return policy
 }
 
 // Send a message to the mailing list

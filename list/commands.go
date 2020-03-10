@@ -132,14 +132,29 @@ func addCommandSubscriptionOptions(cmd *kingpin.CmdClause, userAddress string, a
 
 func (c *Command) parseAddresses(*kingpin.ParseContext) error {
 	addressVars := []*string{
-		c.createOptions.List,
-		c.modifyOptions.List,
 		c.deleteList,
-		c.subscribeOptions.List,
-		c.subscribeOptions.Address,
-		c.unsubscribeOptions.List,
-		c.unsubscribeOptions.Address,
 	}
+	addressesVars := []*[]string{}
+
+	if c.createOptions != nil {
+		addressVars = append(addressVars, c.createOptions.List)
+		addressesVars = append(addressesVars, c.createOptions.Posters)
+		addressesVars = append(addressesVars, c.createOptions.Bcc)
+	}
+	if c.modifyOptions != nil {
+		addressVars = append(addressVars, c.modifyOptions.List)
+		addressesVars = append(addressesVars, c.modifyOptions.Posters)
+		addressesVars = append(addressesVars, c.modifyOptions.Bcc)
+	}
+	if c.subscribeOptions != nil {
+		addressVars = append(addressVars, c.subscribeOptions.List)
+		addressVars = append(addressVars, c.subscribeOptions.Address)
+	}
+	if c.unsubscribeOptions != nil {
+		addressVars = append(addressVars, c.unsubscribeOptions.List)
+		addressVars = append(addressVars, c.unsubscribeOptions.Address)
+	}
+
 	for _, address := range addressVars {
 		err := assureAddress(address)
 		if err != nil {
@@ -147,12 +162,6 @@ func (c *Command) parseAddresses(*kingpin.ParseContext) error {
 		}
 	}
 
-	addressesVars := []*[]string{
-		c.createOptions.Posters,
-		c.createOptions.Bcc,
-		c.modifyOptions.Posters,
-		c.modifyOptions.Bcc,
-	}
 	for _, addresses := range addressesVars {
 		err := assureAddresses(addresses)
 		if err != nil {
@@ -171,7 +180,7 @@ func assureAddress(a *string) error {
 	if err != nil {
 		return err
 	}
-	a = &obj.Address
+	*a = obj.Address
 	return nil
 }
 
@@ -191,7 +200,7 @@ func assureAddresses(a *[]string) error {
 			r = append(r, obj.Address)
 		}
 	}
-	a = &r
+	*a = r
 	return nil
 }
 

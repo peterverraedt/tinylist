@@ -166,6 +166,7 @@ func (b *bot) HandleMessage(msg *Message) error {
 		if err != nil {
 			return err
 		}
+		obj.Address = strings.ToLower(obj.Address)
 
 		reply, err := b.executeCommand(obj.Address, msg.Subject)
 		if err != nil {
@@ -205,6 +206,7 @@ func (b *bot) HandleMessage(msg *Message) error {
 		if err != nil {
 			return err
 		}
+		obj.Address = strings.ToLower(obj.Address)
 
 		// Go through all lists - don't stop at the first error!
 		errors := map[string]error{}

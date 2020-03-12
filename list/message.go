@@ -143,6 +143,7 @@ func (msg *Message) ResendAs(list *list, commandAddress string) *Message {
 	bccList, err := mail.ParseAddressList(msg.Bcc)
 	if err == nil {
 		for _, bcc := range bccList {
+			bcc.Address = strings.ToLower(bcc.Address)
 			if bcc.Address == list.Address {
 				send.Bcc = list.Name + " <" + list.Address + ">"
 				break

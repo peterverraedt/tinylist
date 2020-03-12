@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/mail"
 	"os"
+	"strings"
 
 	"github.com/kballard/go-shellquote"
 	"gopkg.in/alecthomas/kingpin.v2"
@@ -180,7 +181,7 @@ func assureAddress(a *string) error {
 	if err != nil {
 		return err
 	}
-	*a = obj.Address
+	*a = strings.ToLower(obj.Address)
 	return nil
 }
 
@@ -197,7 +198,7 @@ func assureAddresses(a *[]string) error {
 			if err != nil {
 				return err
 			}
-			r = append(r, obj.Address)
+			r = append(r, strings.ToLower(obj.Address))
 		}
 	}
 	*a = r

@@ -10,6 +10,7 @@ func (b *bot) isToCommandAddress(msg *Message) bool {
 	toList, err := mail.ParseAddressList(msg.To)
 	if err == nil {
 		for _, to := range toList {
+			to.Address = strings.ToLower(to.Address)
 			if to.Address == b.CommandAddress {
 				return true
 			}
@@ -19,6 +20,7 @@ func (b *bot) isToCommandAddress(msg *Message) bool {
 	ccList, err := mail.ParseAddressList(msg.Cc)
 	if err == nil {
 		for _, cc := range ccList {
+			cc.Address = strings.ToLower(cc.Address)
 			if cc.Address == b.CommandAddress {
 				return true
 			}
@@ -28,6 +30,7 @@ func (b *bot) isToCommandAddress(msg *Message) bool {
 	bccList, err := mail.ParseAddressList(msg.Bcc)
 	if err == nil {
 		for _, bcc := range bccList {
+			bcc.Address = strings.ToLower(bcc.Address)
 			if bcc.Address == b.CommandAddress {
 				return true
 			}
@@ -72,6 +75,7 @@ func (b *bot) isToBounceAddress(msg *Message) *BounceResponse {
 	toList, err := mail.ParseAddressList(msg.To)
 	if err == nil {
 		for _, to := range toList {
+			to.Address = strings.ToLower(to.Address)
 			br := parseBounce(to.Address)
 			if br != nil && br.BounceAddress == b.BouncesAddress {
 				return br
@@ -82,6 +86,7 @@ func (b *bot) isToBounceAddress(msg *Message) *BounceResponse {
 	ccList, err := mail.ParseAddressList(msg.Cc)
 	if err == nil {
 		for _, cc := range ccList {
+			cc.Address = strings.ToLower(cc.Address)
 			br := parseBounce(cc.Address)
 			if br != nil && br.BounceAddress == b.BouncesAddress {
 				return br
@@ -92,6 +97,7 @@ func (b *bot) isToBounceAddress(msg *Message) *BounceResponse {
 	bccList, err := mail.ParseAddressList(msg.Bcc)
 	if err == nil {
 		for _, bcc := range bccList {
+			bcc.Address = strings.ToLower(bcc.Address)
 			br := parseBounce(bcc.Address)
 			if br != nil && br.BounceAddress == b.BouncesAddress {
 				return br
@@ -109,6 +115,7 @@ func (b *bot) lookupLists(msg *Message) ([]*list, error) {
 	toList, err := mail.ParseAddressList(msg.To)
 	if err == nil {
 		for _, to := range toList {
+			to.Address = strings.ToLower(to.Address)
 			list, err := b.LookupList(to.Address)
 			if err != nil {
 				return nil, err
@@ -122,6 +129,7 @@ func (b *bot) lookupLists(msg *Message) ([]*list, error) {
 	ccList, err := mail.ParseAddressList(msg.Cc)
 	if err == nil {
 		for _, cc := range ccList {
+			cc.Address = strings.ToLower(cc.Address)
 			list, err := b.LookupList(cc.Address)
 			if err != nil {
 				return nil, err
@@ -135,6 +143,7 @@ func (b *bot) lookupLists(msg *Message) ([]*list, error) {
 	bccList, err := mail.ParseAddressList(msg.Bcc)
 	if err == nil {
 		for _, bcc := range bccList {
+			bcc.Address = strings.ToLower(bcc.Address)
 			list, err := b.LookupList(bcc.Address)
 			if err != nil {
 				return nil, err

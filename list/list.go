@@ -7,6 +7,9 @@ import (
 	"time"
 )
 
+// BounceInterval is used to compute ban times when bouncing
+const BounceInterval = 7 * 24 * time.Hour
+
 // A Definition defines a list definition
 type Definition struct {
 	Address         string   `ini:"address"`
@@ -119,9 +122,9 @@ func (list *list) String() string {
 func (list *list) CheckBounces(subscription Subscription) (bool, error) {
 	if subscription.Bounces > 0 {
 		var period time.Duration
-		// First bounce is for free, after second bounce, wait 1 day, after third bounce 2 days, then 4 days, 8 days...
+		// First bounce is for free, after second bounce, wait 1 interval, after third bounce 2 intervals, then 4 intervals, 8 intervals...
 		if subscription.Bounces > 1 {
-			period = time.Duration(math.Pow(2, float64(subscription.Bounces-2))) * 24 * time.Hour
+			period = time.Duration(math.Pow(2, float64(subscription.Bounces-2))) * BounceInterval
 		} else {
 			period = 0
 		}
@@ -130,13 +133,6 @@ func (list *list) CheckBounces(subscription Subscription) (bool, error) {
 		now := time.Now()
 		if now.Before(dontSendUntil) {
 			return false, nil
-		}
-
-		// Forget about bounces if long ago
-		clearBounces := dontSendUntil.Add(period).Add(24 * time.Hour)
-		if now.Before(clearBounces) {
-			err := list.SetBounce(subscription.Address, 0, now)
-			return true, err
 		}
 	}
 

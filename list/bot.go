@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"net/mail"
 	"strings"
 	"time"
@@ -272,8 +273,21 @@ func (b *bot) handleBounce(br *BounceResponse) error {
 		return fmt.Errorf("User %s is not subscribed to list %s", br.Address, br.List)
 	}
 
-	// Increase bounces
+	// Set or increase bounces
 	bounces := subscription.Bounces
+
+	if subscription.Bounces > 0 {
+		// Remember bounces only for a limited interval
+		period := time.Duration(math.Pow(2, float64(subscription.Bounces-1))) * BounceInterval
+		effectiveCountUntil := subscription.LastBounce.Add(period)
+
+		now := time.Now()
+		if now.After(effectiveCountUntil) {
+			bounces = 0
+		}
+	}
+
+	// Increase bounces
 	if bounces < 65535 {
 		bounces++
 	}

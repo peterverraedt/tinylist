@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"crypto/sha256"
 	"database/sql"
 	"fmt"
 	"io"
@@ -100,6 +101,15 @@ func (b *SQLBackend) openDB() (err error) {
 		"bounces" INTEGER NOT NULL DEFAULT 0,
 		"last_bounce" DATETIME NOT NULL DEFAULT 0,
 		UNIQUE("list","user")
+	);
+	CREATE TABLE IF NOT EXISTS "archive" (
+		"list" TEXT NOT NULL,
+		"id" TEXT NOT NULL,
+		"from" TEXT NOT NULL,
+		"subject" TEXT NOT NULL,
+		"date" DATETIME NOT NULL,
+		"message" BLOB NOT NULL,
+		UNIQUE("list","id")
 	);
 	`)
 
@@ -327,6 +337,25 @@ func (b *SQLBackend) ListSetBounce(l list.Definition, user string, bounces uint1
 		return fmt.Errorf("User %s is not subscribed to list %s", user, l.Address)
 	}
 	return nil
+}
+
+// ListArchive method.
+func (b *SQLBackend) ListArchive(l list.Definition, msg *list.Message) error {
+	var (
+		data = []byte(msg.String())
+		id   = fmt.Sprintf("%x", sha256.Sum256(data))
+		now  = time.Now()
+	)
+
+	_, err := b.db.Exec("INSERT INTO archive (list,id,from,subject,date,message) VALUES(?,?,?,?,?,?)",
+		l.Address,
+		id,
+		msg.From,
+		msg.Subject,
+		now,
+		data)
+
+	return err
 }
 
 // CreateList method

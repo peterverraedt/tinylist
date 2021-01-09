@@ -212,21 +212,36 @@ func (b *bot) HandleMessage(msg *Message) error {
 		// Go through all lists - don't stop at the first error!
 		errors := map[string]error{}
 		for _, list := range lists {
-			if list.CanPost(obj.Address) {
-				listMsg := msg.ResendAs(list, b.CommandAddress)
-				err := list.Send(listMsg, b.BouncesAddress, b.SMTPHostname, b.SMTPPort, b.SMTPUsername, b.SMTPPassword, b.Debug)
-				if err != nil {
-					errors[list.Address] = err
-					log.Printf("MESSAGE_FAILED listAddress=%q Id=%q From=%q To=%q Cc=%q Bcc=%q Subject=%q\n",
-						list.Address, listMsg.Address, listMsg.From, listMsg.To, listMsg.Cc, listMsg.Bcc, listMsg.Subject)
-				} else {
-					log.Printf("MESSAGE_SENT listAddress=%q Id=%q From=%q To=%q Cc=%q Bcc=%q Subject=%q\n",
-						list.Address, listMsg.Address, listMsg.From, listMsg.To, listMsg.Cc, listMsg.Bcc, listMsg.Subject)
-				}
-			} else {
+			if !list.CanPost(obj.Address) {
 				log.Printf("UNAUTHORISED_POST From=%q To=%q Cc=%q Bcc=%q", msg.From, msg.To, msg.Cc, msg.Bcc)
+
 				errors[list.Address] = fmt.Errorf("You are not an approved poster for this mailing list. Your message has not been delivered to %s", list.Address)
+
+				continue
 			}
+
+			listMsg := msg.ResendAs(list, b.CommandAddress)
+
+			if err := list.Archive(listMsg); err != nil {
+				log.Printf("ARCHIVAL_FAILED listAddress=%q Id=%q From=%q To=%q Cc=%q Bcc=%q Subject=%q\n",
+					list.Address, listMsg.Address, listMsg.From, listMsg.To, listMsg.Cc, listMsg.Bcc, listMsg.Subject)
+
+				errors[list.Address] = err
+
+				continue
+			}
+
+			if err := list.Send(listMsg, b.BouncesAddress, b.SMTPHostname, b.SMTPPort, b.SMTPUsername, b.SMTPPassword, b.Debug); err != nil {
+				log.Printf("MESSAGE_FAILED listAddress=%q Id=%q From=%q To=%q Cc=%q Bcc=%q Subject=%q\n",
+					list.Address, listMsg.Address, listMsg.From, listMsg.To, listMsg.Cc, listMsg.Bcc, listMsg.Subject)
+
+				errors[list.Address] = err
+
+				continue
+			}
+
+			log.Printf("MESSAGE_SENT listAddress=%q Id=%q From=%q To=%q Cc=%q Bcc=%q Subject=%q\n",
+				list.Address, listMsg.Address, listMsg.From, listMsg.To, listMsg.Cc, listMsg.Bcc, listMsg.Subject)
 		}
 
 		// Check for errors

@@ -24,6 +24,7 @@ type Backend interface {
 	ListSetBounce(Definition, string, uint16, time.Time) error
 	ListSubscribers(Definition) ([]Subscription, error)
 	ListIsSubscribed(Definition, string) (*Subscription, error)
+	ListArchive(Definition, *Message) error
 }
 
 // A BotFactory creates a Bot based on the parsed context - before applying other actions
@@ -94,6 +95,9 @@ func NewList(backend Backend, definition Definition) *list {
 	}
 	l.IsSubscribed = func(a string) (*Subscription, error) {
 		return backend.ListIsSubscribed(definition, a)
+	}
+	l.Archive = func(msg *Message) error {
+		return backend.ListArchive(definition, msg)
 	}
 
 	return l

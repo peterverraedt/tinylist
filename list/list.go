@@ -7,10 +7,10 @@ import (
 	"time"
 )
 
-// BounceInterval is used to compute ban times when bouncing
+// BounceInterval is used to compute ban times when bouncing.
 const BounceInterval = 7 * 24 * time.Hour
 
-// A Definition defines a list definition
+// A Definition defines a list definition.
 type Definition struct {
 	Address         string   `ini:"address"`
 	Name            string   `ini:"name"`
@@ -42,6 +42,7 @@ type list struct {
 	SetBounce    func(string, uint16, time.Time) error
 	Subscribers  func() ([]Subscription, error)
 	IsSubscribed func(string) (*Subscription, error)
+	Archive      func(*Message) error
 }
 
 // CanPost checks if the user is authorised to post to this mailing list
@@ -74,6 +75,8 @@ func (list *list) CanPost(from string) bool {
 
 // Send a message to the mailing list
 func (list *list) Send(msg *Message, envelopeSender string, SMTPHostname string, SMTPPort uint64, SMTPUsername string, SMTPPassword string, debug bool) error {
+	// Archive message if configured
+
 	// Append list id to envelope sender
 	parts := strings.SplitN(envelopeSender, "@", 2)
 	if len(parts) < 2 {

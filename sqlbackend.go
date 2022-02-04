@@ -358,7 +358,7 @@ func (b *SQLBackend) ListArchive(l list.Definition, msg *list.Message) error {
 		now  = time.Now()
 	)
 
-	_, err := b.db.Exec(`INSERT INTO archive ("list","id","from","subject","date","message") VALUES(?,?,?,?,?,?)`,
+	_, err := b.db.Exec(`INSERT INTO archive (list,id,from,subject,date,message) VALUES(?,?,?,?,?,?)`,
 		l.Address,
 		id,
 		msg.From,

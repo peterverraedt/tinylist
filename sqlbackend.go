@@ -88,39 +88,39 @@ func (b *SQLBackend) openDB() (err error) {
 	}
 
 	_, err = b.db.Exec(`
-	CREATE TABLE IF NOT EXISTS "lists" (
-		"list" TEXT PRIMARY KEY,
-		"name" TEXT NOT NULL,
-		"description" TEXT NOT NULL,
-		"hidden" INTEGER(1) NOT NULL,
-		"locked" INTEGER(1) NOT NULL,
-		"subscribers_only" INTEGER(1) NOT NULL
+	CREATE TABLE IF NOT EXISTS lists (
+		list TEXT PRIMARY KEY,
+		name TEXT NOT NULL,
+		description TEXT NOT NULL,
+		hidden INTEGER(1) NOT NULL,
+		locked INTEGER(1) NOT NULL,
+		subscribers_only INTEGER(1) NOT NULL
 	);
-	CREATE TABLE IF NOT EXISTS "bcc" (
-		"list" TEXT NOT NULL,
-		"address" TEXT NOT NULL,
-		UNIQUE("list","address")
+	CREATE TABLE IF NOT EXISTS bcc (
+		list TEXT NOT NULL,
+		address TEXT NOT NULL,
+		UNIQUE(list,address)
 	);
-	CREATE TABLE IF NOT EXISTS "posters" (
-		"list" TEXT NOT NULL,
-		"address" TEXT NOT NULL,
-		UNIQUE("list","address")
+	CREATE TABLE IF NOT EXISTS posters (
+		list TEXT NOT NULL,
+		address TEXT NOT NULL,
+		UNIQUE(list,address)
 	);
-	CREATE TABLE IF NOT EXISTS "subscriptions" (
-		"list" TEXT NOT NULL,
-		"user" TEXT NOT NULL,
-		"bounces" INTEGER NOT NULL DEFAULT 0,
-		"last_bounce" DATETIME,
-		UNIQUE("list","user")
+	CREATE TABLE IF NOT EXISTS subscriptions (
+		list TEXT NOT NULL,
+		user TEXT NOT NULL,
+		bounces INTEGER NOT NULL DEFAULT 0,
+		last_bounce DATETIME,
+		UNIQUE(list,user)
 	);
-	CREATE TABLE IF NOT EXISTS "archive" (
-		"list" TEXT NOT NULL,
-		"id" TEXT NOT NULL,
-		"from" TEXT NOT NULL,
-		"subject" TEXT NOT NULL,
-		"date" DATETIME NOT NULL,
-		"message" BLOB NOT NULL,
-		UNIQUE("list","id")
+	CREATE TABLE IF NOT EXISTS archive (
+		list TEXT NOT NULL,
+		id TEXT NOT NULL,
+		sender TEXT NOT NULL,
+		subject TEXT NOT NULL,
+		date DATETIME NOT NULL,
+		message BLOB NOT NULL,
+		UNIQUE(list,id)
 	);
 	`)
 
@@ -358,7 +358,7 @@ func (b *SQLBackend) ListArchive(l list.Definition, msg *list.Message) error {
 		now  = time.Now()
 	)
 
-	_, err := b.db.Exec(`INSERT INTO archive (list,id,from,subject,date,message) VALUES(?,?,?,?,?,?)`,
+	_, err := b.db.Exec(`INSERT INTO archive (list,id,sender,subject,date,message) VALUES(?,?,?,?,?,?)`,
 		l.Address,
 		id,
 		msg.From,

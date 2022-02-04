@@ -11,6 +11,7 @@ import (
 	"os"
 	"time"
 
+	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/peterverraedt/tinylist/list"
 	"gopkg.in/alecthomas/kingpin.v2"
@@ -20,6 +21,7 @@ import (
 // An SQLBackend is an implementation of list.Backend
 type SQLBackend struct {
 	Log      string `ini:"log"`
+	Driver   string `ini:"driver"`
 	Database string `ini:"database"`
 	config   list.Config
 	db       *sql.DB
@@ -70,7 +72,16 @@ func (b *SQLBackend) LoadConfig(configFile string, debug bool) error {
 }
 
 func (b *SQLBackend) openDB() (err error) {
-	b.db, err = sql.Open("sqlite3", b.Database)
+	var driver string
+
+	switch b.Driver {
+	case "mysql":
+		driver = "mysql"
+	default:
+		driver = "sqlite3"
+	}
+
+	b.db, err = sql.Open(driver, b.Database)
 
 	if err != nil {
 		return

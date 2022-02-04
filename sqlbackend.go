@@ -110,7 +110,7 @@ func (b *SQLBackend) openDB() (err error) {
 		"list" TEXT NOT NULL,
 		"user" TEXT NOT NULL,
 		"bounces" INTEGER NOT NULL DEFAULT 0,
-		"last_bounce" DATETIME NOT NULL DEFAULT 0,
+		"last_bounce" DATETIME,
 		UNIQUE("list","user")
 	);
 	CREATE TABLE IF NOT EXISTS "archive" (

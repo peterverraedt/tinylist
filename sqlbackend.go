@@ -72,13 +72,87 @@ func (b *SQLBackend) LoadConfig(configFile string, debug bool) error {
 }
 
 func (b *SQLBackend) openDB() (err error) {
-	var driver string
+	var driver, sql string
 
 	switch b.Driver {
 	case "mysql":
 		driver = "mysql"
+
+		sql = `
+		CREATE TABLE IF NOT EXISTS lists (
+			list VARCHAR(255) PRIMARY KEY,
+			name VARCHAR(255) NOT NULL,
+			description VARCHAR(255) NOT NULL,
+			hidden INTEGER(1) NOT NULL,
+			locked INTEGER(1) NOT NULL,
+			subscribers_only INTEGER(1) NOT NULL
+		);
+		CREATE TABLE IF NOT EXISTS bcc (
+			list VARCHAR(255) NOT NULL,
+			address VARCHAR(255) NOT NULL,
+			UNIQUE(list,address)
+		);
+		CREATE TABLE IF NOT EXISTS posters (
+			list VARCHAR(255) NOT NULL,
+			address VARCHAR(255) NOT NULL,
+			UNIQUE(list,address)
+		);
+		CREATE TABLE IF NOT EXISTS subscriptions (
+			list VARCHAR(255) NOT NULL,
+			user VARCHAR(255) NOT NULL,
+			bounces INTEGER NOT NULL DEFAULT 0,
+			last_bounce DATETIME NOT NULL DEFAULT '1970-01-01 00:00:00',
+			UNIQUE(list,user)
+		);
+		CREATE TABLE IF NOT EXISTS archive (
+			list VARCHAR(255) NOT NULL,
+			id VARCHAR(255) NOT NULL,
+			sender VARCHAR(255) NOT NULL,
+			subject VARCHAR(255) NOT NULL,
+			date DATETIME NOT NULL,
+			message LONGBLOB NOT NULL,
+			UNIQUE(list,id)
+		);
+		`
 	default:
 		driver = "sqlite3"
+
+		sql = `
+		CREATE TABLE IF NOT EXISTS lists (
+			list TEXT PRIMARY KEY,
+			name TEXT NOT NULL,
+			description TEXT NOT NULL,
+			hidden INTEGER(1) NOT NULL,
+			locked INTEGER(1) NOT NULL,
+			subscribers_only INTEGER(1) NOT NULL
+		);
+		CREATE TABLE IF NOT EXISTS bcc (
+			list TEXT NOT NULL,
+			address TEXT NOT NULL,
+			UNIQUE(list,address)
+		);
+		CREATE TABLE IF NOT EXISTS posters (
+			list TEXT NOT NULL,
+			address TEXT NOT NULL,
+			UNIQUE(list,address)
+		);
+		CREATE TABLE IF NOT EXISTS subscriptions (
+			list TEXT NOT NULL,
+			user TEXT NOT NULL,
+			bounces INTEGER NOT NULL DEFAULT 0,
+			last_bounce DATETIME NOT NULL DEFAULT 0,
+			UNIQUE(list,user)
+		);
+		CREATE TABLE IF NOT EXISTS archive (
+			list TEXT NOT NULL,
+			id TEXT NOT NULL,
+			sender TEXT NOT NULL,
+			subject TEXT NOT NULL,
+			date DATETIME NOT NULL,
+			message BLOB NOT NULL,
+			UNIQUE(list,id)
+		);
+		`
 	}
 
 	b.db, err = sql.Open(driver, b.Database)
@@ -87,42 +161,9 @@ func (b *SQLBackend) openDB() (err error) {
 		return
 	}
 
-	_, err = b.db.Exec(`
-	CREATE TABLE IF NOT EXISTS lists (
-		list TEXT PRIMARY KEY,
-		name TEXT NOT NULL,
-		description TEXT NOT NULL,
-		hidden INTEGER(1) NOT NULL,
-		locked INTEGER(1) NOT NULL,
-		subscribers_only INTEGER(1) NOT NULL
-	);
-	CREATE TABLE IF NOT EXISTS bcc (
-		list TEXT NOT NULL,
-		address TEXT NOT NULL,
-		UNIQUE(list,address)
-	);
-	CREATE TABLE IF NOT EXISTS posters (
-		list TEXT NOT NULL,
-		address TEXT NOT NULL,
-		UNIQUE(list,address)
-	);
-	CREATE TABLE IF NOT EXISTS subscriptions (
-		list TEXT NOT NULL,
-		user TEXT NOT NULL,
-		bounces INTEGER NOT NULL DEFAULT 0,
-		last_bounce DATETIME,
-		UNIQUE(list,user)
-	);
-	CREATE TABLE IF NOT EXISTS archive (
-		list TEXT NOT NULL,
-		id TEXT NOT NULL,
-		sender TEXT NOT NULL,
-		subject TEXT NOT NULL,
-		date DATETIME NOT NULL,
-		message BLOB NOT NULL,
-		UNIQUE(list,id)
-	);
-	`)
+	'1970-01-01 00:00:00'
+
+	_, err = b.db.Exec(sql)
 
 	return nil
 }

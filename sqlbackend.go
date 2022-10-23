@@ -72,13 +72,13 @@ func (b *SQLBackend) LoadConfig(configFile string, debug bool) error {
 }
 
 func (b *SQLBackend) openDB() (err error) {
-	var driver, sql string
+	var driver, query string
 
 	switch b.Driver {
 	case "mysql":
 		driver = "mysql"
 
-		sql = `
+		query = `
 		CREATE TABLE IF NOT EXISTS lists (
 			list VARCHAR(255) PRIMARY KEY,
 			name VARCHAR(255) NOT NULL,
@@ -117,7 +117,7 @@ func (b *SQLBackend) openDB() (err error) {
 	default:
 		driver = "sqlite3"
 
-		sql = `
+		query = `
 		CREATE TABLE IF NOT EXISTS lists (
 			list TEXT PRIMARY KEY,
 			name TEXT NOT NULL,
@@ -156,16 +156,13 @@ func (b *SQLBackend) openDB() (err error) {
 	}
 
 	b.db, err = sql.Open(driver, b.Database)
-
 	if err != nil {
 		return
 	}
 
-	'1970-01-01 00:00:00'
+	_, err = b.db.Exec(query)
 
-	_, err = b.db.Exec(sql)
-
-	return nil
+	return err
 }
 
 func (b *SQLBackend) openLog() error {

@@ -90,19 +90,19 @@ func (b *SQLBackend) openDB() (err error) {
 		CREATE TABLE IF NOT EXISTS bcc (
 			list VARCHAR(255) NOT NULL,
 			address VARCHAR(255) NOT NULL,
-			UNIQUE(list,address)
+			UNIQUE KEY list_address (list,address)
 		);
 		CREATE TABLE IF NOT EXISTS posters (
 			list VARCHAR(255) NOT NULL,
 			address VARCHAR(255) NOT NULL,
-			UNIQUE(list,address)
+			UNIQUE KEY list_address (list,address)
 		);
 		CREATE TABLE IF NOT EXISTS subscriptions (
 			list VARCHAR(255) NOT NULL,
 			user VARCHAR(255) NOT NULL,
 			bounces INTEGER NOT NULL DEFAULT 0,
 			last_bounce DATETIME NOT NULL DEFAULT '1970-01-01 00:00:00',
-			UNIQUE(list,user)
+			UNIQUE KEY list_user (list,user)
 		);
 		CREATE TABLE IF NOT EXISTS archive (
 			list VARCHAR(255) NOT NULL,
@@ -111,7 +111,7 @@ func (b *SQLBackend) openDB() (err error) {
 			subject VARCHAR(255) NOT NULL,
 			date DATETIME NOT NULL,
 			message LONGBLOB NOT NULL,
-			UNIQUE(list,id)
+			UNIQUE KEY list_id (list,id)
 		);
 		`
 	default:

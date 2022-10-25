@@ -119,42 +119,41 @@ func (b *SQLBackend) openDB() (err error) {
 	default:
 		driver = "sqlite3"
 
-		queries = append(queries, `
-		CREATE TABLE IF NOT EXISTS lists (
-			list TEXT PRIMARY KEY,
-			name TEXT NOT NULL,
-			description TEXT NOT NULL,
-			hidden INTEGER(1) NOT NULL,
-			locked INTEGER(1) NOT NULL,
-			subscribers_only INTEGER(1) NOT NULL
-		);
-		CREATE TABLE IF NOT EXISTS bcc (
-			list TEXT NOT NULL,
-			address TEXT NOT NULL,
-			UNIQUE(list,address)
-		);
-		CREATE TABLE IF NOT EXISTS posters (
-			list TEXT NOT NULL,
-			address TEXT NOT NULL,
-			UNIQUE(list,address)
-		);
-		CREATE TABLE IF NOT EXISTS subscriptions (
-			list TEXT NOT NULL,
-			user TEXT NOT NULL,
-			bounces INTEGER NOT NULL DEFAULT 0,
-			last_bounce DATETIME NOT NULL DEFAULT 0,
-			UNIQUE(list,user)
-		);
-		CREATE TABLE IF NOT EXISTS archive (
-			list TEXT NOT NULL,
-			id TEXT NOT NULL,
-			sender TEXT NOT NULL,
-			subject TEXT NOT NULL,
-			date DATETIME NOT NULL,
-			message BLOB NOT NULL,
-			UNIQUE(list,id)
-		);
-		`)
+		queries = append(queries,
+			`CREATE TABLE IF NOT EXISTS lists (
+				list TEXT PRIMARY KEY,
+				name TEXT NOT NULL,
+				description TEXT NOT NULL,
+				hidden INTEGER(1) NOT NULL,
+				locked INTEGER(1) NOT NULL,
+				subscribers_only INTEGER(1) NOT NULL
+			)`,
+			`CREATE TABLE IF NOT EXISTS bcc (
+				list TEXT NOT NULL,
+				address TEXT NOT NULL,
+				UNIQUE(list,address)
+			)`,
+			`CREATE TABLE IF NOT EXISTS posters (
+				list TEXT NOT NULL,
+				address TEXT NOT NULL,
+				UNIQUE(list,address)
+			)`,
+			`CREATE TABLE IF NOT EXISTS subscriptions (
+				list TEXT NOT NULL,
+				user TEXT NOT NULL,
+				bounces INTEGER NOT NULL DEFAULT 0,
+				last_bounce DATETIME NOT NULL DEFAULT 0,
+				UNIQUE(list,user)
+			)`,
+			`CREATE TABLE IF NOT EXISTS archive (
+				list TEXT NOT NULL,
+				id TEXT NOT NULL,
+				sender TEXT NOT NULL,
+				subject TEXT NOT NULL,
+				date DATETIME NOT NULL,
+				message BLOB NOT NULL,
+				UNIQUE(list,id)
+			)`)
 	}
 
 	b.db, err = sql.Open(driver, b.Database)

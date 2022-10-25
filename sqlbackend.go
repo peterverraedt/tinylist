@@ -9,7 +9,6 @@ import (
 	"log"
 	"net/smtp"
 	"os"
-	"strings"
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -73,52 +72,54 @@ func (b *SQLBackend) LoadConfig(configFile string, debug bool) error {
 }
 
 func (b *SQLBackend) openDB() (err error) {
-	var driver, query string
+	var (
+		driver  string
+		queries []string
+	)
 
 	switch b.Driver {
 	case "mysql":
 		driver = "mysql"
 
-		query = strings.ReplaceAll(`
-		CREATE TABLE IF NOT EXISTS "lists" (
-			"list" VARCHAR(255) PRIMARY KEY,
-			"name" VARCHAR(255) NOT NULL,
-			"description" VARCHAR(255) NOT NULL,
-			"hidden" INTEGER(1) NOT NULL,
-			"locked" INTEGER(1) NOT NULL,
-			"subscribers_only" INTEGER(1) NOT NULL
-		);
-		CREATE TABLE IF NOT EXISTS "bcc" (
-			"list" VARCHAR(255) NOT NULL,
-			"address" VARCHAR(255) NOT NULL,
-			UNIQUE KEY "list_address" ("list","address")
-		);
-		CREATE TABLE IF NOT EXISTS "posters" (
-			"list" VARCHAR(255) NOT NULL,
-			"address" VARCHAR(255) NOT NULL,
-			UNIQUE KEY "list_address" ("list","address")
-		);
-		CREATE TABLE IF NOT EXISTS "subscriptions" (
-			"list" VARCHAR(255) NOT NULL,
-			"user" VARCHAR(255) NOT NULL,
-			"bounces" INTEGER NOT NULL DEFAULT 0,
-			"last_bounce" DATETIME NOT NULL DEFAULT '1970-01-01 00:00:00',
-			UNIQUE KEY "list_user" ("list","user")
-		);
-		CREATE TABLE IF NOT EXISTS "archive" (
-			"list" VARCHAR(255) NOT NULL,
-			"id" VARCHAR(255) NOT NULL,
-			"sender" VARCHAR(255) NOT NULL,
-			"subject" VARCHAR(255) NOT NULL,
-			"date" DATETIME NOT NULL,
-			"message" LONGBLOB NOT NULL,
-			UNIQUE KEY "list_id" ("list","id")
-		);
-		`, `"`, "`")
+		queries = append(queries,
+			`CREATE TABLE IF NOT EXISTS lists (
+				list VARCHAR(255) PRIMARY KEY,
+				name VARCHAR(255) NOT NULL,
+				description VARCHAR(255) NOT NULL,
+				hidden INTEGER(1) NOT NULL,
+				locked INTEGER(1) NOT NULL,
+				subscribers_only INTEGER(1) NOT NULL
+			)`,
+			`CREATE TABLE IF NOT EXISTS bcc (
+				list VARCHAR(255) NOT NULL,
+				address VARCHAR(255) NOT NULL,
+				UNIQUE KEY list_address (list,address)
+			)`,
+			`CREATE TABLE IF NOT EXISTS posters (
+				list VARCHAR(255) NOT NULL,
+				address VARCHAR(255) NOT NULL,
+				UNIQUE KEY list_address (list,address)
+			)`,
+			`CREATE TABLE IF NOT EXISTS subscriptions (
+				list VARCHAR(255) NOT NULL,
+				user VARCHAR(255) NOT NULL,
+				bounces INTEGER NOT NULL DEFAULT 0,
+				last_bounce DATETIME NOT NULL DEFAULT '1970-01-01 00:00:00',
+				UNIQUE KEY list_user (list,user)
+			)`,
+			`CREATE TABLE IF NOT EXISTS archive (
+				list VARCHAR(255) NOT NULL,
+				id VARCHAR(255) NOT NULL,
+				sender VARCHAR(255) NOT NULL,
+				subject VARCHAR(255) NOT NULL,
+				date DATETIME NOT NULL,
+				message LONGBLOB NOT NULL,
+				UNIQUE KEY list_id (list,id)
+			)`)
 	default:
 		driver = "sqlite3"
 
-		query = `
+		queries = append(queries, `
 		CREATE TABLE IF NOT EXISTS lists (
 			list TEXT PRIMARY KEY,
 			name TEXT NOT NULL,
@@ -153,7 +154,7 @@ func (b *SQLBackend) openDB() (err error) {
 			message BLOB NOT NULL,
 			UNIQUE(list,id)
 		);
-		`
+		`)
 	}
 
 	b.db, err = sql.Open(driver, b.Database)
@@ -161,9 +162,14 @@ func (b *SQLBackend) openDB() (err error) {
 		return
 	}
 
-	_, err = b.db.Exec(query)
+	for _, query := range queries {
+		_, err = b.db.Exec(query)
+		if err != nil {
+			return
+		}
+	}
 
-	return err
+	return nil
 }
 
 func (b *SQLBackend) openLog() error {

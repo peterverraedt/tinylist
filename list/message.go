@@ -16,6 +16,7 @@ import (
 
 // Message represents an e-mail message
 type Message struct {
+	XOriginalTo     string
 	Subject         string
 	From            string
 	To              string
@@ -53,6 +54,7 @@ func (msg *Message) FromReader(stream io.Reader) error {
 	}
 
 	header := textproto.MIMEHeader(inMessage.Header)
+	msg.XOriginalTo = header.Get("X-Original-To")
 	msg.Subject = header.Get("Subject")
 	msg.From = header.Get("From")
 	msg.To = header.Get("To")
@@ -75,6 +77,7 @@ func (msg *Message) FromReader(stream io.Reader) error {
 	msg.ContentType = header.Get("Content-Type")
 	msg.Body = body
 
+	header.Del("X-Original-To")
 	header.Del("Subject")
 	header.Del("From")
 	header.Del("To")
@@ -162,9 +165,9 @@ func (msg *Message) ResendAs(list *list, commandAddress string) *Message {
 			continue
 		case "X-Original-To":
 			continue
-		case "X-Received":
-			continue
 		case "Delivered-To":
+			continue
+		case "X-Received":
 			continue
 		case "Return-Path":
 			continue
@@ -181,7 +184,7 @@ func (msg *Message) ResendAs(list *list, commandAddress string) *Message {
 		}
 
 		// Keys with spaces are probably malformed
-		if strings.Index(canonicKey, " ") >= 0 {
+		if strings.Contains(canonicKey, " ") {
 			continue
 		}
 
@@ -203,6 +206,9 @@ func (msg *Message) ResendAs(list *list, commandAddress string) *Message {
 func (msg *Message) String() string {
 	var buf bytes.Buffer
 
+	if len(msg.XOriginalTo) > 0 {
+		fmt.Fprintf(&buf, "X-Original-To: %s\r\n", msg.XOriginalTo)
+	}
 	fmt.Fprintf(&buf, "From: %s\r\n", msg.From)
 	fmt.Fprintf(&buf, "To: %s\r\n", msg.To)
 	if len(msg.Cc) > 0 {
@@ -279,7 +285,7 @@ func (msg *Message) String() string {
 func (msg *Message) SendVERP(envelopeSender string, recipients []string, SMTPHostname string, SMTPPort uint64, SMTPUsername string, SMTPPassword string, debug bool) error {
 	parts := strings.SplitN(envelopeSender, "@", 2)
 	if len(parts) < 2 {
-		return fmt.Errorf("Invalid envelope sender %s", envelopeSender)
+		return fmt.Errorf("invalid envelope sender %s", envelopeSender)
 	}
 
 	errors := []error{}

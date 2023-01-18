@@ -7,6 +7,10 @@ import (
 )
 
 func (b *bot) isToCommandAddress(msg *Message) bool {
+	if msg.XOriginalTo != "" {
+		return strings.ToLower(msg.XOriginalTo) == b.CommandAddress
+	}
+
 	toList, err := mail.ParseAddressList(msg.To)
 	if err == nil {
 		for _, to := range toList {
@@ -72,6 +76,15 @@ func parseBounce(address string) *BounceResponse {
 }
 
 func (b *bot) isToBounceAddress(msg *Message) *BounceResponse {
+	if msg.XOriginalTo != "" {
+		br := parseBounce(strings.ToLower(msg.XOriginalTo))
+		if br != nil && br.BounceAddress == b.BouncesAddress {
+			return br
+		}
+
+		return nil
+	}
+
 	toList, err := mail.ParseAddressList(msg.To)
 	if err == nil {
 		for _, to := range toList {
@@ -111,6 +124,18 @@ func (b *bot) isToBounceAddress(msg *Message) *BounceResponse {
 // Retrieve a list of mailing lists that are recipients of the given message
 func (b *bot) lookupLists(msg *Message) ([]*list, error) {
 	lists := []*list{}
+
+	if msg.XOriginalTo != "" {
+		list, err := b.LookupList(strings.ToLower(msg.XOriginalTo))
+		if err != nil {
+			return nil, err
+		}
+		if list != nil {
+			lists = append(lists, list)
+		}
+
+		return lists, nil
+	}
 
 	toList, err := mail.ParseAddressList(msg.To)
 	if err == nil {

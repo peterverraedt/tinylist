@@ -155,8 +155,8 @@ func (b *bot) Handle(stream io.Reader) error {
 	if err != nil {
 		return err
 	}
-	log.Printf("MESSAGE_RECEIVED Id=%q From=%q To=%q Cc=%q Bcc=%q Subject=%q\n",
-		msg.Address, msg.From, msg.To, msg.Cc, msg.Bcc, msg.Subject)
+	log.Printf("MESSAGE_RECEIVED Id=%q X-Original-To=%q From=%q To=%q Cc=%q Bcc=%q Subject=%q\n",
+		msg.Address, msg.XOriginalTo, msg.From, msg.To, msg.Cc, msg.Bcc, msg.Subject)
 	return b.HandleMessage(msg)
 }
 

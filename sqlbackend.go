@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"crypto/sha256"
 	"database/sql"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -225,9 +226,11 @@ func (c *SQLBackend) Lists() ([]list.Definition, error) {
 	}
 
 	result := []list.Definition{}
+
 	defer rows.Close()
+
 	for rows.Next() {
-		l, err := c.fetchList(rows)
+		l, err := c.fetchList(rows.Scan)
 		if err != nil {
 			return nil, err
 		}
@@ -235,46 +238,40 @@ func (c *SQLBackend) Lists() ([]list.Definition, error) {
 		result = append(result, l)
 	}
 
-	return result, nil
+	return result, rows.Err()
 }
 
 // LookupList returns a specific list, or nil if not found
 func (b *SQLBackend) LookupList(name string) (*list.Definition, error) {
-	rows, err := b.db.Query("SELECT list, name, description, hidden, locked, subscribers_only FROM lists WHERE list=?", name)
-	if err == sql.ErrNoRows {
+	row := b.db.QueryRow("SELECT list, name, description, hidden, locked, subscribers_only FROM lists WHERE list=?", name)
+
+	if err := row.Err(); errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
+	} else if err != nil {
+		return nil, err
 	}
+
+	l, err := b.fetchList(row.Scan)
 	if err != nil {
 		return nil, err
 	}
 
-	defer rows.Close()
-	if rows.Next() {
-		l, err := b.fetchList(rows)
-		if err != nil {
-			return nil, err
-		}
-
-		if rows.Next() {
-			return nil, nil
-		}
-
-		return &l, nil
-	}
-
-	return nil, nil
+	return &l, nil
 }
 
-func (b *SQLBackend) fetchList(rows *sql.Rows) (list.Definition, error) {
+func (b *SQLBackend) fetchList(scan func(dest ...interface{}) error) (list.Definition, error) {
 	l := list.Definition{}
-	err := rows.Scan(&l.Address, &l.Name, &l.Description, &l.Hidden, &l.Locked, &l.SubscribersOnly)
+
+	err := scan(&l.Address, &l.Name, &l.Description, &l.Hidden, &l.Locked, &l.SubscribersOnly)
 	if err != nil {
 		return l, err
 	}
+
 	l.Posters, err = b.listPosters(l.Address)
 	if err != nil {
 		return l, err
 	}
+
 	l.Bcc, err = b.listBcc(l.Address)
 	return l, err
 }
@@ -287,6 +284,7 @@ func (b *SQLBackend) listPosters(id string) ([]string, error) {
 
 	result := []string{}
 	defer rows.Close()
+
 	for rows.Next() {
 		var address string
 		err = rows.Scan(&address)
@@ -296,7 +294,7 @@ func (b *SQLBackend) listPosters(id string) ([]string, error) {
 		result = append(result, address)
 	}
 
-	return result, nil
+	return result, rows.Err()
 }
 
 func (b *SQLBackend) listBcc(id string) ([]string, error) {
@@ -307,6 +305,7 @@ func (b *SQLBackend) listBcc(id string) ([]string, error) {
 
 	result := []string{}
 	defer rows.Close()
+
 	for rows.Next() {
 		var address string
 		err = rows.Scan(&address)
@@ -316,7 +315,7 @@ func (b *SQLBackend) listBcc(id string) ([]string, error) {
 		result = append(result, address)
 	}
 
-	return result, nil
+	return result, rows.Err()
 }
 
 // ListIsSubscribed method
@@ -344,16 +343,18 @@ func (b *SQLBackend) ListSubscribers(l list.Definition) ([]list.Subscription, er
 
 	result := []list.Subscription{}
 	defer rows.Close()
+
 	for rows.Next() {
 		s := list.Subscription{}
 		err = rows.Scan(&s.Address, &s.Bounces, &s.LastBounce)
 		if err != nil {
 			return nil, err
 		}
+
 		result = append(result, s)
 	}
 
-	return result, nil
+	return result, rows.Err()
 }
 
 // ListSubscribe method
@@ -372,9 +373,11 @@ func (b *SQLBackend) ListUnsubscribe(l list.Definition, user string) error {
 	if err != nil {
 		return err
 	}
+
 	if n == 0 {
-		return fmt.Errorf("User %s is not subscribed to list %s", user, l.Address)
+		return fmt.Errorf("user %s is not subscribed to list %s", user, l.Address)
 	}
+
 	return nil
 }
 
@@ -384,13 +387,16 @@ func (b *SQLBackend) ListSetBounce(l list.Definition, user string, bounces uint1
 	if err != nil {
 		return err
 	}
+
 	n, err := r.RowsAffected()
 	if err != nil {
 		return err
 	}
+
 	if n == 0 {
-		return fmt.Errorf("User %s is not subscribed to list %s", user, l.Address)
+		return fmt.Errorf("user %s is not subscribed to list %s", user, l.Address)
 	}
+
 	return nil
 }
 

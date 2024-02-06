@@ -462,20 +462,11 @@ func (b *SQLBackend) CreateList(d list.Definition) error {
 func (b *SQLBackend) ModifyList(a string, d list.Definition) error {
 	tx, _ := b.db.Begin()
 
-	r, err := tx.Exec("UPDATE lists SET list = ?, name = ?, description = ?, hidden = ?, locked = ?, subscribers_only = ? WHERE list = ?",
+	_, err := tx.Exec("UPDATE lists SET list = ?, name = ?, description = ?, hidden = ?, locked = ?, subscribers_only = ? WHERE list = ?",
 		d.Address, d.Name, d.Description, d.Hidden, d.Locked, d.SubscribersOnly, a)
 	if err != nil {
 		tx.Rollback()
 		return err
-	}
-	n, err := r.RowsAffected()
-	if err != nil {
-		tx.Rollback()
-		return err
-	}
-	if n == 0 {
-		tx.Rollback()
-		return fmt.Errorf("List %s does not exist", a)
 	}
 
 	if a != d.Address {

@@ -106,6 +106,7 @@ func (b *SQLBackend) openDB() (err error) {
 				user VARCHAR(255) NOT NULL,
 				bounces INTEGER NOT NULL DEFAULT 0,
 				last_bounce DATETIME NOT NULL DEFAULT '1970-01-01 00:00:00',
+				comment VARCHAR(255),
 				UNIQUE KEY list_user (list,user)
 			)`,
 			`CREATE TABLE IF NOT EXISTS archive (
